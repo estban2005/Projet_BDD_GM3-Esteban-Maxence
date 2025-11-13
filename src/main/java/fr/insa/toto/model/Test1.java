@@ -23,5 +23,6 @@ package fr.insa.toto.model;
  * @author esteb
  */
 public class Test1 {
+   //test 2.0
     
 }
