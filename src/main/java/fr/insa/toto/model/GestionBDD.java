@@ -34,136 +34,99 @@ public class GestionBDD {
      * @param con
      * @throws SQLException
      */
-    public static void creeSchema(Connection con)
-            throws SQLException {
-        try {
-            con.setAutoCommit(false);
-            try (Statement st = con.createStatement()) {
-                // creation des tables
-                st.executeUpdate("create table utilisateur ( "
-                        + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
-                        + " surnom varchar(30) not null unique,"
-                        + " pass varchar(20),"
-                        + " role integer not null "
-                        + ") "
-                );
-                st.executeUpdate("create table loisir ( "
-                        + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
-                        + " nom varchar(20) not null unique,"
-                        + " description text"
-                        + ") "
-                );
-                st.executeUpdate("create table pratique ( "
-                        + " idutilisateur integer not null,"
-                        + " idloisir integer not null,"
-                        + " niveau integer not null "
-                        + ") "
-                );
-                con.commit();
-                st.executeUpdate("create table apprecie ( "
-                        + " u1 integer not null,"
-                        + " u2 integer not null"
-                        + ") "
-                );
-
-                st.executeUpdate("alter table apprecie\n"
-                        + "  add constraint fk_apprecie_u1\n"
-                        + "  foreign key (u1) references utilisateur(id)"
-                );
-                st.executeUpdate("alter table apprecie\n"
-                        + "  add constraint fk_apprecie_u2\n"
-                        + "  foreign key (u2) references utilisateur(id)"
-                );
-                st.executeUpdate("alter table pratique\n"
-                        + "  add constraint fk_pratique_idutilisateur\n"
-                        + "  foreign key (idutilisateur) references utilisateur(id)"
-                );
-
-                st.executeUpdate("alter table pratique\n"
-                        + "  add constraint fk_pratique_idloisir\n"
-                        + "  foreign key (idloisir) references loisir(id)"
-                );
-
-                con.commit();
-            }
-        } catch (SQLException ex) {
-            con.rollback();
-            throw ex;
-        } finally {
-            con.setAutoCommit(true);
-        }
-    }
-
-    /**
-     *
-     * @param con
-     * @throws SQLException
-     */
-    public static void deleteSchema(Connection con) throws SQLException {
+public static void creeSchema(Connection con) throws SQLException {
+    try {
+        con.setAutoCommit(false);
         try (Statement st = con.createStatement()) {
-            try {
-                st.executeUpdate(
-                        "alter table utilisateur "
-                        + "drop constraint fk_utilisateur_u1");
-            } catch (SQLException ex) {
-            }
-            try {
-                st.executeUpdate(
-                        "alter table utilisateur "
-                        + "drop constraint fk_utilisateur_u2");
-            } catch (SQLException ex) {
-            }
-            try {
-                st.executeUpdate(
-                        "alter table pratique "
-                        + "drop constraint fk_pratique_idutilisateur");
-            } catch (SQLException ex) {
-            }
-            try {
-                st.executeUpdate(
-                        "alter table pratique "
-                        + "drop constraint fk_pratique_idloisir");
-            } catch (SQLException ex) {
-            }
-            try {
-                st.executeUpdate("drop table apprecie");
-            } catch (SQLException ex) {
-            }
-            try {
-                st.executeUpdate("drop table pratique");
-            } catch (SQLException ex) {
-            }
-            try {
-                st.executeUpdate("drop table loisir");
-            } catch (SQLException ex) {
-            }
-            try {
-                st.executeUpdate("drop table utilisateur");
-            } catch (SQLException ex) {
-            }
+
+            // ----- table joueur -----
+            st.executeUpdate(
+                    "create table joueur ( "
+                    + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
+                    + " surnom varchar(30) not null unique,"
+                    + " categorie char(1),"
+                    + " tailleCm integer"
+                    + ")"
+            )
+                    ;
+
+            // ----- table matchs -----
+            st.executeUpdate(
+                    "create table matchs ( "
+                    + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
+                    + " ronde integer not null"
+                    + ")"
+            ) 
+                    ;
+
+            // ----- table equipe -----
+            st.executeUpdate(
+                    "create table equipe ( "
+                    + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
+                    + " num integer not null,"
+                    + " score integer,"
+                    + " idMatch integer not null,"
+                    + " constraint fk_equipe_idmatch "
+                    + "   foreign key (idMatch) references matchs(id)"
+                    + ")"
+            )
+                    ;
+
+            // ----- table composition -----
+            st.executeUpdate(
+                    "create table composition ( "
+                    + " idEquipe integer not null,"
+                    + " idJoueur integer not null,"
+                    + " constraint fk_compo_idequipe "
+                    + "   foreign key (idEquipe) references equipe(id),"
+                    + " constraint fk_compo_idjoueur "
+                    + "   foreign key (idJoueur) references joueur(id)"
+                    + ")"
+            )
+                    ;
+
+            con.commit();
         }
+    } catch (SQLException ex) {
+        con.rollback();
+        throw ex;
+    } finally {
+        con.setAutoCommit(true);
     }
+}
 
-    /**
-     *
-     * @param con
-     * @throws SQLException
-     */
-    public static void razBdd(Connection con) throws SQLException {
-        deleteSchema(con);
-        creeSchema(con);
-    }
-
-    /**
-     *
-     * @param args
-     */
-    public static void main(String[] args) {
-        try (Connection con = ConnectionSimpleSGBD.defaultCon()) {
-            razBdd(con);
+public static void deleteSchema(Connection con) throws SQLException {
+    try (Statement st = con.createStatement()) {
+        // on supprime dans l'ordre enfant -> parent
+        try {
+            st.executeUpdate("drop table composition");
         } catch (SQLException ex) {
-            throw new Error(ex);
+        }
+        try {
+            st.executeUpdate("drop table equipe");
+        } catch (SQLException ex) {
+        }
+        try {
+            st.executeUpdate("drop table matchs");
+        } catch (SQLException ex) {
+        }
+        try {
+            st.executeUpdate("drop table joueur");
+        } catch (SQLException ex) {
         }
     }
+}
 
+public static void razBdd(Connection con) throws SQLException {
+    deleteSchema(con);
+    creeSchema(con);
+}
+
+public static void main(String[] args) {
+    try (Connection con = ConnectionSimpleSGBD.defaultCon()) {
+        razBdd(con);
+    } catch (SQLException ex) {
+        throw new Error(ex);
+    }
+}
 }
