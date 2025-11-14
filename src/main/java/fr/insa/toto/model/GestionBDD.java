@@ -41,7 +41,7 @@ public static void creeSchema(Connection con) throws SQLException {
 
             // ----- table joueur -----
             st.executeUpdate(
-                    "create table joueur ( "
+                    "create table Joueur ( "
                     + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
                     + " surnom varchar(30) not null unique,"
                     + " categorie char(1),"
@@ -52,7 +52,7 @@ public static void creeSchema(Connection con) throws SQLException {
 
             // ----- table matchs -----
             st.executeUpdate(
-                    "create table matchs ( "
+                    "create table Matchs ( "
                     + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
                     + " ronde integer not null"
                     + ")"
@@ -61,7 +61,7 @@ public static void creeSchema(Connection con) throws SQLException {
 
             // ----- table equipe -----
             st.executeUpdate(
-                    "create table equipe ( "
+                    "create table Equipe ( "
                     + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
                     + " num integer not null,"
                     + " score integer,"
@@ -74,7 +74,7 @@ public static void creeSchema(Connection con) throws SQLException {
 
             // ----- table composition -----
             st.executeUpdate(
-                    "create table composition ( "
+                    "create table Composition ( "
                     + " idEquipe integer not null,"
                     + " idJoueur integer not null,"
                     + " constraint fk_compo_idequipe "
@@ -99,19 +99,19 @@ public static void deleteSchema(Connection con) throws SQLException {
     try (Statement st = con.createStatement()) {
         // on supprime dans l'ordre enfant -> parent
         try {
-            st.executeUpdate("drop table composition");
+            st.executeUpdate("drop table Composition");
         } catch (SQLException ex) {
         }
         try {
-            st.executeUpdate("drop table equipe");
+            st.executeUpdate("drop table Equipe");
         } catch (SQLException ex) {
         }
         try {
-            st.executeUpdate("drop table matchs");
+            st.executeUpdate("drop table Matchs");
         } catch (SQLException ex) {
         }
         try {
-            st.executeUpdate("drop table joueur");
+            st.executeUpdate("drop table Joueur");
         } catch (SQLException ex) {
         }
     }
