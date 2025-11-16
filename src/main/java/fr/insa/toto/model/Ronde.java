@@ -26,7 +26,7 @@ public class Ronde {
 
     private Integer id;
     private int numero;
-    private String statut;   // EN_COURS / CLOSE
+    private String statut; 
     private int idTournoi;
 
     public Ronde(int numero, String statut, int idTournoi) {
