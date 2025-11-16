@@ -22,33 +22,45 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Terrain {
+public class Ronde {
 
     private Integer id;
-    private String nom;
+    private int numero;
+    private String statut;   // EN_COURS / CLOSE
+    private int idTournoi;
 
-    public Terrain(String nom) {
+    public Ronde(int numero, String statut, int idTournoi) {
         this.id = null;
-        this.nom = nom;
+        this.numero = numero;
+        this.statut = statut;
+        this.idTournoi = idTournoi;
     }
 
-    public Terrain(Integer id, String nom) {
+    public Ronde(Integer id, int numero, String statut, int idTournoi) {
         this.id = id;
-        this.nom = nom;
+        this.numero = numero;
+        this.statut = statut;
+        this.idTournoi = idTournoi;
     }
 
     public Integer getId() { return id; }
-    public String getNom() { return nom; }
-    public void setNom(String nom) { this.nom = nom; }
+    public int getNumero() { return numero; }
+    public void setNumero(int numero) { this.numero = numero; }
+    public String getStatut() { return statut; }
+    public void setStatut(String statut) { this.statut = statut; }
+    public int getIdTournoi() { return idTournoi; }
+    public void setIdTournoi(int idTournoi) { this.idTournoi = idTournoi; }
 
     public void insertInDB(Connection con) throws SQLException {
         if (this.id != null) {
-            throw new IllegalStateException("Terrain déjà inséré");
+            throw new IllegalStateException("Rounde déjà insérée");
         }
         try (PreparedStatement pst = con.prepareStatement(
-                "insert into terrain (nom) values (?)",
+                "insert into ronde (numero, statut, idTournoi) values (?,?,?)",
                 Statement.RETURN_GENERATED_KEYS)) {
-            pst.setString(1, this.nom);
+            pst.setInt(1, this.numero);
+            pst.setString(2, this.statut);
+            pst.setInt(3, this.idTournoi);
             pst.executeUpdate();
             try (ResultSet rs = pst.getGeneratedKeys()) {
                 if (rs.next()) {
@@ -58,15 +70,17 @@ public class Terrain {
         }
     }
 
-    public static List<Terrain> findAll(Connection con) throws SQLException {
-        List<Terrain> res = new ArrayList<>();
+    public static List<Ronde> findAll(Connection con) throws SQLException {
+        List<Ronde> res = new ArrayList<>();
         try (PreparedStatement pst = con.prepareStatement(
-                "select id, nom from terrain");
+                "select id, numero, statut, idTournoi from ronde");
              ResultSet rs = pst.executeQuery()) {
             while (rs.next()) {
-                res.add(new Terrain(
+                res.add(new Ronde(
                         rs.getInt("id"),
-                        rs.getString("nom")));
+                        rs.getInt("numero"),
+                        rs.getString("statut"),
+                        rs.getInt("idTournoi")));
             }
         }
         return res;
@@ -74,6 +88,7 @@ public class Terrain {
 
     @Override
     public String toString() {
-        return "Terrain{" + "id=" + id + ", nom=" + nom + '}';
+        return "Rounde{" + "id=" + id + ", numero=" + numero + ", statut=" + statut + '}';
     }
 }
+

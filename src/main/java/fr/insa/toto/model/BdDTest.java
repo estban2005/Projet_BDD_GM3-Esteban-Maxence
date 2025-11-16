@@ -20,80 +20,109 @@ package fr.insa.toto.model;
 
 import fr.insa.beuvron.utils.database.ConnectionSimpleSGBD;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.List;
+import java.sql.Statement;
 
-/**
- *
- * @author francois
- */
 public class BdDTest {
 
-    public static void createBdDTestV1(Connection con) throws SQLException {
-        try (PreparedStatement pst = con.prepareStatement("insert into utilisateur (id,surnom) values (?,?)")) {
-            pst.setInt(1, 1);
-            pst.setString(2, "toto");
-            pst.executeUpdate();
-            pst.setInt(1, 2);
-            pst.setString(2, "titi");
-            pst.executeUpdate();
-        }
-    }
+    public static void createBdDTest(Connection con) throws SQLException {
+        try {
+            con.setAutoCommit(false);
+            try (Statement st = con.createStatement()) {
 
-    public static void createBdDTestV2(Connection con) throws SQLException {
-        List<Utilisateur> users = List.of(
-                new Utilisateur("toto", "p1", 1),
-                new Utilisateur("titi", "p2", 2),
-                new Utilisateur("tutu", "p2", 2)
-        );
-        for (var u : users) {
-            u.saveInDB(con);
-        }
-        List<Loisir> loisirs = List.of(
-                new Loisir("tennis", "c'est fatiguant"),
-                new Loisir("sieste", "c'est reposantm"),
-                new Loisir("lecture", "trop intello")
-        );
-        for (var lo : loisirs) {
-            lo.saveInDB(con);
-        }
-        int[][] apprecient = new int[][]{
-            {0, 1},
-            {1, 1},
-            {1, 2},
-            {2, 1},};
-        try (PreparedStatement app = con.prepareStatement(
-                "insert into apprecie (u1,u2) values (?,?)")) {
-            for (int[] a : apprecient) {
-                app.setInt(1, users.get(a[0]).getId());
-                app.setInt(2, users.get(a[1]).getId());
-                app.executeUpdate();
+                // ---------- TOURNOI ----------
+                st.executeUpdate(
+                        "insert into tournoi (id, nom, nbTerrains, nbJoueursParEquipe) "
+                        + "values (1, 'Tournoi de test', 2, 2)");
+
+                // ---------- TERRAINS ----------
+                st.executeUpdate(
+                        "insert into terrain (id, nom) values (1, 'Terrain 1')");
+                st.executeUpdate(
+                        "insert into terrain (id, nom) values (2, 'Terrain 2')");
+
+                // ---------- RONDE ----------
+                st.executeUpdate(
+                        "insert into ronde (id, numero, statut, idTournoi) "
+                        + "values (1, 1, 'CLOSE', 1)");
+
+                // ---------- JOUEURS ----------
+                // On met le scoreTotal égal à la somme des scores des équipes
+                // auxquelles ils appartiennent
+                st.executeUpdate(
+                        "insert into joueur (id, nom, prenom, surnom, sexe, scoreTotal) "
+                        + "values (1, 'Durand', 'Toto', 'Toto', 'M', 10)");
+                st.executeUpdate(
+                        "insert into joueur (id, nom, prenom, surnom, sexe, scoreTotal) "
+                        + "values (2, 'Martin', 'Titi', 'Titi', 'M', 15)");
+                st.executeUpdate(
+                        "insert into joueur (id, nom, prenom, surnom, sexe, scoreTotal) "
+                        + "values (3, 'Dupont', 'Tutu', 'Tutu', 'M', 27)");
+                st.executeUpdate(
+                        "insert into joueur (id, nom, prenom, surnom, sexe, scoreTotal) "
+                        + "values (4, 'Bernard', 'Toti', 'Toti', 'M', 20)");
+                st.executeUpdate(
+                        "insert into joueur (id, nom, prenom, surnom, sexe, scoreTotal) "
+                        + "values (5, 'Morel', 'Tuti', 'Tuti', 'M', 12)");
+
+                // ---------- MATCHS ----------
+                //2 matchs dans la ronde 1
+                st.executeUpdate(
+                        "insert into matchs (id, statut, idRonde, idTerrain) "
+                        + "values (1, 'CLOSE', 1, 1)");
+                st.executeUpdate(
+                        "insert into matchs (id, statut, idRonde, idTerrain) "
+                        + "values (2, 'CLOSE', 1, 2)");
+
+                // ---------- EQUIPES ----------
+                st.executeUpdate(
+                        "insert into equipe (id, num, score, idMatch) "
+                        + "values (1, 1, 10, 1)");
+                st.executeUpdate(
+                        "insert into equipe (id, num, score, idMatch) "
+                        + "values (2, 2, 15, 1)");
+                st.executeUpdate(
+                        "insert into equipe (id, num, score, idMatch) "
+                        + "values (3, 1, 12, 2)");
+                st.executeUpdate(
+                        "insert into equipe (id, num, score, idMatch) "
+                        + "values (4, 2, 5, 2)");
+
+                // ---------- COMPOSITION DES EQUIPES ----------
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (1, 1)");
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (1, 2)");
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (2, 3)");
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (2, 4)");
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (3, 5)");
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (3, 3)");
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (4, 4)");
+                st.executeUpdate(
+                        "insert into composition (idEquipe, idJoueur) values (4, 2)");
+
+                con.commit();
             }
-        }
-        int[][] pratiques = new int[][]{
-            {0, 1, 1},
-            {1, 0, 2},
-            {1, 2, -2},
-            {2, 1, -1},};
-        try (PreparedStatement pra = con.prepareStatement(
-                "insert into pratique (idutilisateur,idloisir,niveau) values (?,?,?)")) {
-            for (int[] p : pratiques) {
-                pra.setInt(1, users.get(p[0]).getId());
-                pra.setInt(2, loisirs.get(p[1]).getId());
-                pra.setInt(3, p[2]);
-                pra.executeUpdate();
-            }
+        } catch (SQLException ex) {
+            con.rollback();
+            throw ex;
+        } finally {
+            con.setAutoCommit(true);
         }
     }
 
     public static void main(String[] args) {
         try (Connection con = ConnectionSimpleSGBD.defaultCon()) {
             GestionBDD.razBdd(con);
-            createBdDTestV2(con);
+            createBdDTest(con);
+            System.out.println("Base de données de test créée avec succès.");
         } catch (SQLException ex) {
             throw new Error(ex);
         }
     }
-
 }
