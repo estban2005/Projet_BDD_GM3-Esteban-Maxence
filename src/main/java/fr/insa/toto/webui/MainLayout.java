@@ -18,21 +18,23 @@ along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
  */
 package fr.insa.toto.webui;
 
+import com.vaadin.flow.component.applayout.AppLayout;
+import com.vaadin.flow.component.applayout.DrawerToggle;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
 
 /**
  *
- * @author francois
+ * @author maxen
  */
-@Route(value = "",layout=MainLayout.class)
-@PageTitle("Likes")
-public class VuePrincipale extends VerticalLayout {
+public class MainLayout extends AppLayout {
 
-    public VuePrincipale() {
-        this.add(new H2("TODO"));
+    public MainLayout() {
+        this.addToDrawer(new Button("coucou"));
+        
+        DrawerToggle toggle = new DrawerToggle();
+        
+        this.addToNavbar(toggle, new H2("ceci est l'entête"));
     }
 
 }
