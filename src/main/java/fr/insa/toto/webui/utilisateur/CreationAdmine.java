@@ -28,7 +28,8 @@ import java.util.List;
  *
  * @author maxen
  */
-@Route(value = "utilisateurs/creationAdmin",layout=MainLayout.class")
+
+@Route(value="utilisateurs/creationAdmin",layout=MainLayout.class")
 @PageTitle("Likes")
 public class CreationAdmine extends FormLayout {
 

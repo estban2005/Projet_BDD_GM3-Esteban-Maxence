@@ -30,7 +30,7 @@ import com.vaadin.flow.component.html.H2;
 public class MainLayout extends AppLayout {
 
     public MainLayout() {
-        this.addToDrawer(new Button("coucou"));
+        this.addToDrawer(new MainMenu());
         
         DrawerToggle toggle = new DrawerToggle();
         

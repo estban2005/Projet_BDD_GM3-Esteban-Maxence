@@ -18,10 +18,25 @@ along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
  */
 package fr.insa.toto.webui;
 
+import com.vaadin.flow.component.sidenav.SideNav;
+import com.vaadin.flow.component.sidenav.SideNavItem;
+
 /**
  *
  * @author maxen
  */
-public class MainMenu {
-    
+public class MainMenu extends SideNav {
+
+    public MainMenu() {
+        SideNavItem accueil = new SideNavItem("accueil", VuePrincipale.class);
+        SideNavItem utilisateurs = new SideNavItem("utilisateurs");
+        SideNavItem creationAdmin = new SideNavItem("creation(admin)",CreationAdmine.class);
+        
+        // Ajoute le lien "creationAdmin" comme sous-menu de "utilisateurs"
+        utilisateurs.addItem(creationAdmin);
+        
+        // Ajoute "accueil" et le menu complet "utilisateurs" à la barre de navigation
+        this.addItem(accueil, utilisateurs);
+    }
+
 }
