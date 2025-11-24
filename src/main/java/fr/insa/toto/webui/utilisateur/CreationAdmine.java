@@ -21,7 +21,10 @@ package fr.insa.toto.webui.utilisateur;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
-import java.awt.TextField;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
+import fr.insa.toto.webui.MainLayout;
 import java.util.List;
 
 /**
@@ -29,7 +32,7 @@ import java.util.List;
  * @author maxen
  */
 
-@Route(value="utilisateurs/creationAdmin",layout=MainLayout.class")
+@Route(value="utilisateurs/creationAdmin",layout=MainLayout.class)
 @PageTitle("Likes")
 public class CreationAdmine extends FormLayout {
 
@@ -38,8 +41,8 @@ public class CreationAdmine extends FormLayout {
     private ComboBox<String> role;
 
     public CreationAdmine() {
-        this.surnom = new TextField("surnom");
-        this.password = new PasswordField("Password");
+        this.surnom = new TextField("");
+        this.password = new PasswordField("");
         this.role = new ComboBox<>("role");
         
         // Remplit la liste déroulante avec deux choix
@@ -48,7 +51,7 @@ public class CreationAdmine extends FormLayout {
         // Note : Ces méthodes semblent spécifiques à une librairie de ton école 
         // ou à une classe personnalisée, car elles n'existent pas dans le Vaadin standard.
         this.setAutoResponsive(true);
-        this.addFormRow(this.surnom, this.password);
+        this.addFormRow(this.surnom,this.password);
         this.addFormRow(this.role);
     }
 }
