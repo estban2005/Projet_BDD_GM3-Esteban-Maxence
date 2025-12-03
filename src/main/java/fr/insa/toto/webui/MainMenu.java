@@ -32,31 +32,41 @@ public class MainMenu extends VerticalLayout {
         setHeightFull();
         setPadding(false);
         setSpacing(false);
+        getStyle().set("border-right", "1px solid var(--lumo-contrast-10pct)");
 
         SideNav nav = new SideNav();
         
         SideNavItem accueil = new SideNavItem("Accueil", VuePrincipale.class);
-
         nav.addItem(accueil);
+        
+
+        nav.addItem(new SideNavItem("Classement", VueClassement.class));
+        nav.addItem(new SideNavItem("Matchs & Résultats", VueListeMatchs.class));
 
         if (SessionInfo.isCurUserAdmin()) {
             SideNavItem adminSection = new SideNavItem("Administration");
+            adminSection.setExpanded(true);
+            
             adminSection.addItem(new SideNavItem("Créer Utilisateur", CreationAdmine.class));
+            
             adminSection.addItem(new SideNavItem("Gérer Tournoi", VueGestionTournoi.class));
             
             nav.addItem(adminSection);
         }
 
         add(nav);
+
         Button logoutBtn = new Button("Se déconnecter", e -> {
             SessionInfo.logout();
             getUI().ifPresent(ui -> ui.navigate(VueLogin.class));
         });
-        logoutBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        logoutBtn.getStyle().set("margin-top", "auto");
-        logoutBtn.getStyle().set("margin-bottom", "10px");
-        logoutBtn.getStyle().set("align-self", "center");
         
-        add(logoutBtn);
+        logoutBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        logoutBtn.setWidthFull();
+        
+        VerticalLayout spacer = new VerticalLayout();
+        spacer.setHeightFull(); 
+        
+        add(spacer, logoutBtn);
     }
 }
