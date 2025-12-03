@@ -66,7 +66,7 @@ public class BdDTest {
                         + "values (5, 'Morel', 'Tuti', 'Tuti', 'M', 12)");
 
                 // ---------- MATCHS ----------
-                //2 matchs dans la ronde 1
+
                 st.executeUpdate(
                         "insert into matchs (id, statut, idRonde, idTerrain) "
                         + "values (1, 'CLOSE', 1, 1)");
@@ -107,6 +107,14 @@ public class BdDTest {
                         "insert into composition (idEquipe, idJoueur) values (4, 2)");
 
                 con.commit();
+                // ---------- UTILISATEURS (Login) ----------
+    // Création d'un Admin (Surnom: "admin", Mdp: "admin")
+    st.executeUpdate("insert into utilisateur (surnom, pass, role) values ('admin', 'admin', 1)");
+    
+    // Création d'un Utilisateur standard (Surnom: "user", Mdp: "user")
+    st.executeUpdate("insert into utilisateur (surnom, pass, role) values ('user', 'user', 2)");
+    
+    System.out.println("Utilisateurs par défaut créés : admin/admin et user/user");
             }
         } catch (SQLException ex) {
             con.rollback();

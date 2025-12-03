@@ -112,6 +112,16 @@ public class GestionBDD {
                         + ")"
                 );
 
+                // ----- table utilisateur -----
+                st.executeUpdate(
+                        "create table utilisateur ( "
+                        + ConnectionSimpleSGBD.sqlForGeneratedKeys(con, "id") + ","
+                        + " surnom varchar(50) not null unique,"
+                        + " pass varchar(50) not null,"
+                        + " role integer not null"
+                        + ")"
+                );
+
                 con.commit();
             }
         } catch (SQLException ex) {
@@ -124,56 +134,22 @@ public class GestionBDD {
 
     public static void deleteSchema(Connection con) throws SQLException {
         try (Statement st = con.createStatement()) {
-
-            // on supprime dans l'ordre enfant -> parent
-            try {
-                st.executeUpdate("drop table composition");
-            } catch (SQLException ex) {
-            }
-
-            try {
-                st.executeUpdate("drop table equipe");
-            } catch (SQLException ex) {
-            }
-
-            try {
-                st.executeUpdate("drop table matchs");
-            } catch (SQLException ex) {
-            }
-
-            try {
-                st.executeUpdate("drop table ronde");
-            } catch (SQLException ex) {
-            }
-
-            try {
-                st.executeUpdate("drop table terrain");
-            } catch (SQLException ex) {
-            }
-
-            try {
-                st.executeUpdate("drop table joueur");
-            } catch (SQLException ex) {
-            }
-
-            try {
-                st.executeUpdate("drop table tournoi");
-            } catch (SQLException ex) {
-            }
+            // Suppression dans l'ordre inverse des dépendances
+            try { st.executeUpdate("drop table composition"); } catch (SQLException ex) {}
+            try { st.executeUpdate("drop table equipe"); } catch (SQLException ex) {}
+            try { st.executeUpdate("drop table matchs"); } catch (SQLException ex) {}
+            try { st.executeUpdate("drop table ronde"); } catch (SQLException ex) {}
+            try { st.executeUpdate("drop table terrain"); } catch (SQLException ex) {}
+            try { st.executeUpdate("drop table joueur"); } catch (SQLException ex) {}
+            try { st.executeUpdate("drop table tournoi"); } catch (SQLException ex) {}
+            
+            // Suppression utilisateur
+            try { st.executeUpdate("drop table utilisateur"); } catch (SQLException ex) {}
         }
     }
 
     public static void razBdd(Connection con) throws SQLException {
         deleteSchema(con);
         creeSchema(con);
-    }
-
-    public static void main(String[] args) {
-        try (Connection con = ConnectionSimpleSGBD.defaultCon()) {
-            razBdd(con);
-            System.out.println("Schéma tournoi recréé avec succès.");
-        } catch (SQLException ex) {
-            throw new Error(ex);
-        }
     }
 }

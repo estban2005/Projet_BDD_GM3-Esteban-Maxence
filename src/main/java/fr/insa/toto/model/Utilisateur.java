@@ -160,5 +160,27 @@ public class Utilisateur extends ClasseMiroir {
     public void setPass(String pass) {
         this.pass = pass;
     }
-
+    public static Utilisateur login(Connection con, String surnom, String password) throws SQLException {
+        try (PreparedStatement pst = con.prepareStatement(
+                "SELECT id, surnom, pass, role FROM utilisateur WHERE surnom = ? AND pass = ?")) {
+            pst.setString(1, surnom);
+            pst.setString(2, password); //
+            
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) {
+                    return new Utilisateur(
+                            rs.getInt("id"),
+                            rs.getString("surnom"),
+                            rs.getString("pass"),
+                            rs.getInt("role")
+                    );
+                }
+            }
+        }
+        return null;
+    }
+    public boolean isAdmin() {
+        return this.role == 1; 
+// On suppose que 1 = Admin, 2 = Utilisateur
+    }
 }

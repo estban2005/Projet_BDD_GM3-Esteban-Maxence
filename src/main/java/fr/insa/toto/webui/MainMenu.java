@@ -18,26 +18,45 @@ along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
  */
 package fr.insa.toto.webui;
 
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
+import fr.insa.toto.webui.security.SessionInfo;
 import fr.insa.toto.webui.utilisateur.CreationAdmine;
 
-/**
- *
- * @author maxen
- */
-public class MainMenu extends SideNav {
+public class MainMenu extends VerticalLayout {
 
     public MainMenu() {
-        SideNavItem accueil = new SideNavItem("accueil", VuePrincipale.class);
-        SideNavItem utilisateurs = new SideNavItem("utilisateurs");
-        SideNavItem creationAdmin = new SideNavItem("creation(admin)",CreationAdmine.class);
-        
-        // Ajoute le lien "creationAdmin" comme sous-menu de "utilisateurs"
-        utilisateurs.addItem(creationAdmin);
-        
-        // Ajoute "accueil" et le menu complet "utilisateurs" à la barre de navigation
-        this.addItem(accueil, utilisateurs);
-    }
+        setHeightFull();
+        setPadding(false);
+        setSpacing(false);
 
+        SideNav nav = new SideNav();
+        
+        SideNavItem accueil = new SideNavItem("Accueil", VuePrincipale.class);
+
+        nav.addItem(accueil);
+
+        if (SessionInfo.isCurUserAdmin()) {
+            SideNavItem adminSection = new SideNavItem("Administration");
+            adminSection.addItem(new SideNavItem("Créer Utilisateur", CreationAdmine.class));
+            adminSection.addItem(new SideNavItem("Gérer Tournoi", VueGestionTournoi.class));
+            
+            nav.addItem(adminSection);
+        }
+
+        add(nav);
+        Button logoutBtn = new Button("Se déconnecter", e -> {
+            SessionInfo.logout();
+            getUI().ifPresent(ui -> ui.navigate(VueLogin.class));
+        });
+        logoutBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        logoutBtn.getStyle().set("margin-top", "auto");
+        logoutBtn.getStyle().set("margin-bottom", "10px");
+        logoutBtn.getStyle().set("align-self", "center");
+        
+        add(logoutBtn);
+    }
 }
