@@ -43,6 +43,7 @@ public class MainMenu extends VerticalLayout {
         nav.addItem(new SideNavItem("Classement", VueClassement.class));
         nav.addItem(new SideNavItem("Matchs & Résultats", VueListeMatchs.class));
         nav.addItem(new SideNavItem("Joueurs", VueJoueurs.class));
+        nav.addItem(new SideNavItem("Tournois", VueListeTournois.class));
         
 
         if (SessionInfo.isCurUserAdmin()) {
@@ -53,7 +54,7 @@ public class MainMenu extends VerticalLayout {
             
             adminSection.addItem(new SideNavItem("Gérer Tournoi", VueGestionTournoi.class));
             
-            adminSection.addItem(new SideNavItem("Configuration", VueConfigurationTournoi.class));
+           // adminSection.addItem(new SideNavItem("Configuration", VueConfigurationTournoi.class));
             nav.addItem(adminSection);
         }
 
