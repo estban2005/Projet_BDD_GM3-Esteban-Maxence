@@ -42,6 +42,8 @@ public class MainMenu extends VerticalLayout {
 
         nav.addItem(new SideNavItem("Classement", VueClassement.class));
         nav.addItem(new SideNavItem("Matchs & Résultats", VueListeMatchs.class));
+        nav.addItem(new SideNavItem("Joueurs", VueJoueurs.class));
+        
 
         if (SessionInfo.isCurUserAdmin()) {
             SideNavItem adminSection = new SideNavItem("Administration");
