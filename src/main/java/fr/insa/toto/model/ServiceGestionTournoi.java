@@ -23,6 +23,8 @@ along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
 package fr.insa.toto.model;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
@@ -31,10 +33,9 @@ public class ServiceGestionTournoi {
 
     /**
      * Génère une ronde aléatoire.
-     * @param nbEquipesParMatch : Le nombre d'équipes qui s'affrontent (ex: 2).
+     * @param nbEquipesParMatch :
      */
     public static void genererNouvelleRonde(Connection con, int idTournoi, int nbEquipesParMatch) throws SQLException {
-        // 1. Récupération des infos du tournoi
         List<Tournoi> tournois = Tournoi.findAll(con);
         Tournoi tournoi = tournois.stream()
                 .filter(t -> t.getId() == idTournoi)
@@ -44,11 +45,11 @@ public class ServiceGestionTournoi {
         int tailleEquipe = tournoi.getNbJoueursParEquipe();
         int nbTerrains = tournoi.getNbTerrains();
         
-        // 2. Récupération et mélange des joueurs
+        verifierEtCreerTerrains(con, nbTerrains);
+        
         List<Joueur> tousLesJoueurs = Joueur.findAll(con);
         Collections.shuffle(tousLesJoueurs);
 
-        // 3. Calculs des limites
         int joueursParMatch = nbEquipesParMatch * tailleEquipe;
         if (joueursParMatch == 0) throw new IllegalArgumentException("Configuration impossible (0 joueurs par match)");
         
@@ -57,29 +58,34 @@ public class ServiceGestionTournoi {
 
         if (nbMatchsReels == 0) throw new IllegalStateException("Pas assez de joueurs ou de terrains !");
 
-        // 4. Transaction BDD
         boolean oldAutoCommit = con.getAutoCommit();
         con.setAutoCommit(false);
 
         try {
-            // Création Ronde (On met le numéro 1 arbitrairement pour l'instant)
-            Ronde ronde = new Ronde(1, "EN_COURS", idTournoi);
+
+            int numRonde = 1;
+            try (PreparedStatement pst = con.prepareStatement("SELECT MAX(numero) FROM ronde WHERE idTournoi = ?")) {
+                pst.setInt(1, idTournoi);
+                try (ResultSet rs = pst.executeQuery()) {
+                    if (rs.next()) numRonde = rs.getInt(1) + 1;
+                }
+            }
+
+            Ronde ronde = new Ronde(numRonde, "EN_COURS", idTournoi);
             ronde.insertInDB(con);
 
             int indexJoueur = 0;
 
-            // Boucle pour créer chaque MATCH
             for (int i = 0; i < nbMatchsReels; i++) {
-                // Création du match (avec un ID terrain fictif i+1)
-                Matchs match = new Matchs("EN_COURS", ronde.getId(), i + 1);
+                int idTerrain = i + 1;
+                
+                Matchs match = new Matchs("EN_COURS", ronde.getId(), idTerrain);
                 match.insertInDB(con);
 
-                // Boucle pour créer les EQUIPES du match (de 1 à nbEquipesParMatch)
                 for (int numEquipe = 1; numEquipe <= nbEquipesParMatch; numEquipe++) {
                     Equipe equipe = new Equipe(numEquipe, 0, match.getId());
                     equipe.insertInDB(con);
 
-                    // Boucle pour remplir l'équipe avec des JOUEURS
                     for (int j = 0; j < tailleEquipe; j++) {
                         if (indexJoueur < tousLesJoueurs.size()) {
                             Joueur joueur = tousLesJoueurs.get(indexJoueur++);
@@ -95,6 +101,27 @@ public class ServiceGestionTournoi {
             throw ex;
         } finally {
             con.setAutoCommit(oldAutoCommit);
+        }
+    }
+
+
+    private static void verifierEtCreerTerrains(Connection con, int nbTerrainsNecessaires) throws SQLException {
+        for (int i = 1; i <= nbTerrainsNecessaires; i++) {
+            boolean existe = false;
+            try (PreparedStatement pstCheck = con.prepareStatement("SELECT 1 FROM terrain WHERE id = ?")) {
+                pstCheck.setInt(1, i);
+                try (ResultSet rs = pstCheck.executeQuery()) {
+                    if (rs.next()) existe = true;
+                }
+            }
+
+            if (!existe) {
+                try (PreparedStatement pstInsert = con.prepareStatement("INSERT INTO terrain (id, nom) VALUES (?, ?)")) {
+                    pstInsert.setInt(1, i);
+                    pstInsert.setString(2, "Terrain " + i);
+                    pstInsert.executeUpdate();
+                }
+            }
         }
     }
 }

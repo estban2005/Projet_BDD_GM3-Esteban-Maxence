@@ -53,6 +53,7 @@ public class MainMenu extends VerticalLayout {
             
             adminSection.addItem(new SideNavItem("Gérer Tournoi", VueGestionTournoi.class));
             
+            adminSection.addItem(new SideNavItem("Configuration", VueConfigurationTournoi.class));
             nav.addItem(adminSection);
         }
 
