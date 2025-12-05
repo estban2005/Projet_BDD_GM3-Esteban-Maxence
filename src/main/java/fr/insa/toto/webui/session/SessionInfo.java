@@ -24,7 +24,7 @@ package fr.insa.toto.webui.session;
 import com.vaadin.flow.server.VaadinSession;
 import fr.insa.toto.model.Utilisateur;
 import java.io.Serializable;
-public class SessionInfo implements Serializable{
+/*public class SessionInfo implements Serializable{
     
     private static final long serialVersionUID = 1L;
     
@@ -35,4 +35,4 @@ public class SessionInfo implements Serializable{
         
     }
     
-}
+}*/
