@@ -17,11 +17,22 @@ You should have received a copy of the GNU General Public License
 along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
  */
 package fr.insa.toto.webui.session;
-
 /**
  *
  * @author esteb
  */
-public class SessionInfo {
+import com.vaadin.flow.server.VaadinSession;
+import fr.insa.toto.model.Utilisateur;
+import java.io.Serializable;
+public class SessionInfo implements Serializable{
+    
+    private static final long serialVersionUID = 1L;
+    
+    private Utilisateur curUser;
+    
+    public static SessionInfo getOrCreate () {
+        VaadinSession curSession = VaadinSession.getCurrent();
+        
+    }
     
 }
