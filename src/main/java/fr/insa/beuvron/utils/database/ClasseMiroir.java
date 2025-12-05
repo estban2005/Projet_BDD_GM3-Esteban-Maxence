@@ -23,7 +23,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-
+//test
 /**
  * Représente une entité de la base de donnée dans Java.
  * !!!! VERSION 2 : la version 1 avait un bug grave
