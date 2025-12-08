@@ -17,17 +17,17 @@ import java.sql.SQLException;
 public class Application extends SpringBootServletInitializer implements AppShellConfigurator {
 
     public static void main(String[] args) {
-        try (Connection con = ConnectionPool.getConnection()) {
-            GestionBDD.razBdd(con);
+//        try (Connection con = ConnectionPool.getConnection()) {
+//            GestionBDD.razBdd(con);
             
-            BdDTest.createBdDTest(con);
+//            BdDTest.createBdDTest(con);
             
-            System.out.println("--- Base de données initialisée avec succès ---");
+//            System.out.println("--- Base de données initialisée avec succès ---");
             
-        } catch (SQLException ex) {
-            throw new Error("Impossible d'initialiser la BDD", ex);
-        }
+//        } catch (SQLException ex) {
+//            throw new Error("Impossible d'initialiser la BDD", ex);
+//        }
 
         SpringApplication.run(Application.class, args);
-    }
+}
 }
