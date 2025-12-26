@@ -95,5 +95,17 @@ public class Matchs {
     public String toString() {
         return "Matchs{" + "id=" + id + ", statut=" + statut + '}';
     }
+public static List<Matchs> findAll(Connection con, int idRonde) throws SQLException {
+    List<Matchs> res = new ArrayList<>();
+    try (PreparedStatement pst = con.prepareStatement("SELECT * FROM matchs WHERE idRonde = ?")) {
+        pst.setInt(1, idRonde);
+        try (ResultSet rs = pst.executeQuery()) {
+            while (rs.next()) {
+                res.add(new Matchs(rs.getInt("id"), rs.getString("statut"), rs.getInt("idRonde"), rs.getInt("idTerrain")));
+            }
+        }
+    }
+    return res;
+}
 }
 

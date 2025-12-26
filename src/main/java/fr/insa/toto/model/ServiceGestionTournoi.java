@@ -124,4 +124,26 @@ public class ServiceGestionTournoi {
             }
         }
     }
+public static void verifierEtCloturerRonde(Connection con, int idRonde) throws SQLException {
+    String sqlCheck = "SELECT COUNT(*) FROM matchs WHERE idRonde = ? AND statut != 'TERMINÉ'";
+    
+    boolean rondeFinie = false;
+    try (PreparedStatement pst = con.prepareStatement(sqlCheck)) {
+        pst.setInt(1, idRonde);
+        try (ResultSet rs = pst.executeQuery()) {
+            if (rs.next()) {
+                rondeFinie = (rs.getInt(1) == 0);
+            }
+        }
+    }
+
+    if (rondeFinie) {
+        String sqlUpdate = "UPDATE ronde SET statut = 'TERMINÉ' WHERE id = ?";
+        try (PreparedStatement pstUpdate = con.prepareStatement(sqlUpdate)) {
+            pstUpdate.setInt(1, idRonde);
+            pstUpdate.executeUpdate();
+            System.out.println("--- La ronde " + idRonde + " est maintenant TERMINÉE ---");
+        }
+    }
 }
+    }

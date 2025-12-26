@@ -51,9 +51,7 @@ public class MainMenu extends VerticalLayout {
             adminSection.setExpanded(true);
             
             adminSection.addItem(new SideNavItem("Créer Utilisateur", CreationAdmine.class));
-            
-            adminSection.addItem(new SideNavItem("Gérer Tournoi", VueGestionTournoi.class));
-            
+                        
            // adminSection.addItem(new SideNavItem("Configuration", VueConfigurationTournoi.class));
             nav.addItem(adminSection);
         }
