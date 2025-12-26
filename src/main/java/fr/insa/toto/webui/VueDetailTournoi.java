@@ -31,6 +31,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Route(value = "tournoi", layout = MainLayout.class)
 @PageTitle("Détail Tournoi")
@@ -39,7 +40,6 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
     private int idTournoi;
     private H2 titreVue = new H2("Chargement...");
     
-    // Conteneurs
     private VerticalLayout containerRondes = new VerticalLayout();
     private VerticalLayout containerMatchs = new VerticalLayout();
     
@@ -47,7 +47,6 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
     private Tab tabClassement;
     private Tabs tabs;
 
-    // Grilles
     private Grid<RondeInfo> gridRondes;
     private Grid<MatchInfo> gridMatchs;
     
@@ -103,9 +102,7 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         }
     }
 
-    // =========================================================================
-    // VUE 1 : LISTE DES RONDES + GENERATION INTELLIGENTE
-    // =========================================================================
+    // --- VUE 1 : RONDES ---
 
     private void afficherVueRondes() {
         containerMatchs.setVisible(false);
@@ -121,7 +118,6 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
             Button btnGenerer = new Button("Générer la ronde suivante", VaadinIcon.PLUS.create());
             btnGenerer.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
             btnGenerer.addClickListener(e -> preparerGenerationRonde());
-            
             headerRondes.add(btnGenerer);
             headerRondes.setFlexGrow(1, btnGenerer);
             headerRondes.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
@@ -176,14 +172,12 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
             
         } catch (Exception ex) {
             Notification.show("Erreur pré-génération : " + ex.getMessage());
-            ex.printStackTrace();
         }
     }
 
     private void afficherDialogConfigurationInitiale() {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Démarrage du Tournoi");
-
         VerticalLayout layout = new VerticalLayout();
         layout.add(new Span("C'est la première ronde. Veuillez configurer les matchs."));
         
@@ -191,23 +185,17 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         nbEquipesField.setValue(2);
         nbEquipesField.setMin(2);
         nbEquipesField.setStepButtonsVisible(true);
-        nbEquipesField.setHelperText("Ex: 2 pour des duels, 3 pour des triangulaires...");
         
         layout.add(nbEquipesField);
 
-        Button btnConfirmer = new Button("Générer la ronde 1", e -> {
+        Button btnConfirmer = new Button("Générer", e -> {
             if (nbEquipesField.getValue() != null && nbEquipesField.getValue() >= 2) {
                 lancerGeneration(nbEquipesField.getValue());
                 dialog.close();
-            } else {
-                Notification.show("Valeur invalide");
             }
         });
         btnConfirmer.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        
-        Button btnAnnuler = new Button("Annuler", e -> dialog.close());
-
-        dialog.getFooter().add(btnAnnuler, btnConfirmer);
+        dialog.getFooter().add(new Button("Annuler", e -> dialog.close()), btnConfirmer);
         dialog.add(layout);
         dialog.open();
     }
@@ -215,82 +203,14 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
     private void lancerGeneration(int nbEquipesParMatch) {
         try (Connection con = ConnectionPool.getConnection()) {
             ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipesParMatch);
-            Notification.show("Nouvelle ronde générée (" + nbEquipesParMatch + " équipes/match) !")
-                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            Notification.show("Ronde générée !").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             afficherVueRondes();
         } catch (Exception ex) {
-            Notification.show("Erreur génération : " + ex.getMessage())
-                .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            ex.printStackTrace();
+            Notification.show("Erreur génération : " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
-    // --- REQUETES SQL UTILES ---
-
-    private int recupererNombreRondes(Connection con) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM ronde WHERE idTournoi = ?";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idTournoi);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        }
-        return 0;
-    }
-
-    private int recupererConfigEquipesParMatch(Connection con) throws SQLException {
-        String sql = "SELECT COUNT(e.id) " +
-                     "FROM equipe e " +
-                     "JOIN matchs m ON e.idMatch = m.id " +
-                     "JOIN ronde r ON m.idRonde = r.id " +
-                     "WHERE r.idTournoi = ? " +
-                     "GROUP BY m.id " +
-                     "LIMIT 1"; 
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idTournoi);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        }
-        return 2;
-    }
-
-    private boolean isDerniereRondeTerminee(Connection con, int idTournoi) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM matchs m " +
-                     "JOIN ronde r ON m.idRonde = r.id " +
-                     "WHERE r.idTournoi = ? " +
-                     "AND r.numero = (SELECT MAX(numero) FROM ronde WHERE idTournoi = ?) " +
-                     "AND m.statut != 'CLOSE'"; 
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idTournoi);
-            pst.setInt(2, idTournoi);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) return rs.getInt(1) == 0;
-            }
-        }
-        return true; 
-    }
-
-    private List<RondeInfo> recupererRondes(Connection con) throws SQLException {
-        List<RondeInfo> res = new ArrayList<>();
-        String sql = "SELECT r.id, r.numero, " +
-                     "(SELECT COUNT(*) FROM matchs m WHERE m.idRonde = r.id AND m.statut != 'CLOSE') as encours " +
-                     "FROM ronde r WHERE r.idTournoi = ? ORDER BY r.numero";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idTournoi);
-            try (ResultSet rs = pst.executeQuery()) {
-                while(rs.next()) {
-                    boolean terminee = rs.getInt("encours") == 0;
-                    res.add(new RondeInfo(rs.getInt("id"), rs.getInt("numero"), terminee));
-                }
-            }
-        }
-        return res;
-    }
-
-    // =========================================================================
-    // VUE 2 : LISTE DES MATCHS
-    // =========================================================================
+    // --- VUE 2 : MATCHS (Dynamique N équipes) ---
 
     private void afficherVueMatchs(RondeInfo ronde) {
         containerRondes.setVisible(false);
@@ -298,7 +218,7 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         containerMatchs.removeAll();
 
         HorizontalLayout header = new HorizontalLayout();
-        Button btnRetour = new Button("Retour aux rondes", VaadinIcon.ARROW_LEFT.create());
+        Button btnRetour = new Button("Retour", VaadinIcon.ARROW_LEFT.create());
         btnRetour.addClickListener(e -> afficherVueRondes());
         
         titreRondeEnCours.setText("Matchs de la Ronde " + ronde.numero);
@@ -306,45 +226,68 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         header.setAlignItems(FlexComponent.Alignment.CENTER);
 
         gridMatchs = new Grid<>(MatchInfo.class, false);
-        gridMatchs.addColumn(MatchInfo::getDescriptionDuel).setHeader("Rencontre").setAutoWidth(true).setFlexGrow(1);
+        
+        // Colonne Description (Equipe 1 vs Equipe 2 vs ...)
+        gridMatchs.addColumn(MatchInfo::getDescriptionDuel)
+                  .setHeader("Rencontre")
+                  .setAutoWidth(true)
+                  .setFlexGrow(1);
 
+        // Colonne Score DYNAMIQUE
         gridMatchs.addColumn(new ComponentRenderer<>(match -> {
             HorizontalLayout layout = new HorizontalLayout();
             layout.setAlignItems(FlexComponent.Alignment.CENTER);
 
+            // MODE LECTURE (CLOSE)
             if ("CLOSE".equals(match.statut)) {
-                Span scoreTxt = new Span(match.score1 + " - " + match.score2);
+                // Affiche "12 - 15 - 8"
+                String txt = match.equipes.stream()
+                        .map(e -> String.valueOf(e.score))
+                        .collect(Collectors.joining(" - "));
+                Span scoreTxt = new Span(txt);
                 scoreTxt.getStyle().set("font-weight", "bold");
                 layout.add(scoreTxt);
 
                 if (SessionInfo.isCurUserAdmin()) {
                     Button btnEdit = new Button(VaadinIcon.EDIT.create());
                     btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-                    btnEdit.setTooltipText("Corriger (Annule les points et réouvre)");
+                    btnEdit.setTooltipText("Corriger (Réouvrir)");
                     btnEdit.addClickListener(e -> corrigerMatch(match));
                     layout.add(btnEdit);
                 }
-            } else {
+            } 
+            // MODE ÉDITION (EN_COURS)
+            else {
                 if (SessionInfo.isCurUserAdmin()) {
-                    IntegerField fieldS1 = new IntegerField();
-                    fieldS1.setValue(match.score1 != null ? match.score1 : 0);
-                    fieldS1.setWidth("70px");
-
-                    IntegerField fieldS2 = new IntegerField();
-                    fieldS2.setValue(match.score2 != null ? match.score2 : 0);
-                    fieldS2.setWidth("70px");
+                    List<IntegerField> inputs = new ArrayList<>();
+                    
+                    // On crée un champ pour CHAQUE équipe
+                    for (EquipeInfo eq : match.equipes) {
+                        IntegerField f = new IntegerField();
+                        f.setValue(eq.score != null ? eq.score : 0);
+                        f.setWidth("60px");
+                        f.setTooltipText(eq.nom); // Pour savoir qui est qui si besoin
+                        inputs.add(f);
+                        layout.add(f);
+                        
+                        // Séparateur "-" sauf pour le dernier
+                        if (match.equipes.indexOf(eq) < match.equipes.size() - 1) {
+                            layout.add(new Span("-"));
+                        }
+                    }
 
                     Button btnValider = new Button(VaadinIcon.CHECK.create());
                     btnValider.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_PRIMARY);
-                    btnValider.addClickListener(e -> validerMatch(match, fieldS1.getValue(), fieldS2.getValue()));
-
-                    layout.add(fieldS1, new Span("-"), fieldS2, btnValider);
+                    
+                    // On passe la liste des champs à la validation
+                    btnValider.addClickListener(e -> validerMatch(match, inputs));
+                    layout.add(btnValider);
                 } else {
                     layout.add(new Span("En attente..."));
                 }
             }
             return layout;
-        })).setHeader("Score").setWidth("300px");
+        })).setHeader("Score").setWidth("350px"); // Un peu plus large pour N équipes
 
         gridMatchs.addComponentColumn(match -> {
             Span badge = new Span("CLOSE".equals(match.statut) ? "Terminé" : "En cours");
@@ -361,28 +304,35 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         containerMatchs.add(header, gridMatchs);
     }
 
-    private void validerMatch(MatchInfo match, Integer s1, Integer s2) {
-        int finalS1 = s1 != null ? s1 : 0;
-        int finalS2 = s2 != null ? s2 : 0;
+    private void validerMatch(MatchInfo match, List<IntegerField> inputs) {
+        if (match.equipes.size() != inputs.size()) return;
 
         try (Connection con = ConnectionPool.getConnection()) {
             con.setAutoCommit(false);
             try {
-                updateEquipeScore(con, match.idEquipe1, finalS1);
-                updateEquipeScore(con, match.idEquipe2, finalS2);
+                // Pour chaque équipe, on met à jour le score et on ajoute les points
+                for (int i = 0; i < match.equipes.size(); i++) {
+                    EquipeInfo eq = match.equipes.get(i);
+                    Integer val = inputs.get(i).getValue();
+                    int score = val != null ? val : 0;
+                    
+                    updateEquipeScore(con, eq.id, score);
+                    ajouterPointsAuxJoueurs(con, eq.id, score);
+                    
+                    // Mise à jour objet local
+                    eq.score = score;
+                }
+
                 try (PreparedStatement pst = con.prepareStatement("UPDATE matchs SET statut = 'CLOSE' WHERE id = ?")) {
                     pst.setInt(1, match.idMatch);
                     pst.executeUpdate();
                 }
-                ajouterPointsAuxJoueurs(con, match.idEquipe1, finalS1);
-                ajouterPointsAuxJoueurs(con, match.idEquipe2, finalS2);
-                con.commit();
-                
-                match.score1 = finalS1;
-                match.score2 = finalS2;
                 match.statut = "CLOSE";
+                
+                con.commit();
                 gridMatchs.getDataProvider().refreshItem(match);
                 Notification.show("Match validé !").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
             } catch (Exception ex) {
                 con.rollback(); throw ex;
             } finally { con.setAutoCommit(true); }
@@ -393,23 +343,71 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         try (Connection con = ConnectionPool.getConnection()) {
             con.setAutoCommit(false);
             try {
-                if (match.score1 != null) retirerPointsAuxJoueurs(con, match.idEquipe1, match.score1);
-                if (match.score2 != null) retirerPointsAuxJoueurs(con, match.idEquipe2, match.score2);
+                // On retire les points pour tout le monde
+                for (EquipeInfo eq : match.equipes) {
+                    if (eq.score != null) retirerPointsAuxJoueurs(con, eq.id, eq.score);
+                }
+
                 try (PreparedStatement pst = con.prepareStatement("UPDATE matchs SET statut = 'EN_COURS' WHERE id = ?")) {
                     pst.setInt(1, match.idMatch);
                     pst.executeUpdate();
                 }
-                con.commit();
+                
                 match.statut = "EN_COURS";
+                con.commit();
                 gridMatchs.getDataProvider().refreshItem(match);
                 Notification.show("Match réouvert.").addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+
             } catch (Exception ex) {
                 con.rollback(); throw ex;
             } finally { con.setAutoCommit(true); }
         } catch (Exception ex) { Notification.show("Erreur : " + ex.getMessage()); }
     }
 
-    // --- SQL HELPERS ---
+    // --- REQUÊTES SQL & OUTILS ---
+
+    private List<MatchInfo> recupererMatchsDeLaRonde(Connection con, int idRonde) throws SQLException {
+        List<MatchInfo> res = new ArrayList<>();
+        String sql = "SELECT m.id, m.idTerrain, m.statut FROM matchs m WHERE m.idRonde = ? ORDER BY m.id";
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setInt(1, idRonde);
+            try (ResultSet rs = pst.executeQuery()) {
+                while (rs.next()) {
+                    MatchInfo info = new MatchInfo();
+                    info.idMatch = rs.getInt("id");
+                    info.idTerrain = rs.getInt("idTerrain");
+                    info.statut = rs.getString("statut");
+                    remplirEquipes(con, info); // C'est ici que la magie opère
+                    res.add(info);
+                }
+            }
+        }
+        return res;
+    }
+    
+    private void remplirEquipes(Connection con, MatchInfo info) throws SQLException {
+        // Cette requête récupère TOUTES les équipes du match, peu importe le nombre (2, 3, 4...)
+        String sql = "SELECT e.id, e.score, GROUP_CONCAT(j.surnom SEPARATOR ', ') as joueurs " +
+                     "FROM equipe e " +
+                     "JOIN composition c ON c.idEquipe = e.id " +
+                     "JOIN joueur j ON j.id = c.idJoueur " +
+                     "WHERE e.idMatch = ? " +
+                     "GROUP BY e.id ORDER BY e.num";
+                     
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setInt(1, info.idMatch);
+            try (ResultSet rs = pst.executeQuery()) {
+                // Boucle while au lieu de if/if : on prend tout ce qui vient !
+                while (rs.next()) {
+                    int id = rs.getInt("id");
+                    String nom = rs.getString("joueurs");
+                    Integer score = rs.getObject("score") != null ? rs.getInt("score") : null;
+                    info.equipes.add(new EquipeInfo(id, nom, score));
+                }
+            }
+        }
+    }
+
     private void updateEquipeScore(Connection con, int idEquipe, int score) throws SQLException {
         try (PreparedStatement pst = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?")) {
             pst.setInt(1, score); pst.setInt(2, idEquipe); pst.executeUpdate();
@@ -435,45 +433,50 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
             }
         }
     }
-
-    private List<MatchInfo> recupererMatchsDeLaRonde(Connection con, int idRonde) throws SQLException {
-        List<MatchInfo> res = new ArrayList<>();
-        String sql = "SELECT m.id, m.idTerrain, m.statut FROM matchs m WHERE m.idRonde = ? ORDER BY m.id";
+    
+    private int recupererNombreRondes(Connection con) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM ronde WHERE idTournoi = ?";
         try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idRonde);
+            pst.setInt(1, idTournoi);
             try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) {
-                    MatchInfo info = new MatchInfo();
-                    info.idMatch = rs.getInt("id");
-                    info.idTerrain = rs.getInt("idTerrain");
-                    info.statut = rs.getString("statut");
-                    remplirEquipes(con, info);
-                    res.add(info);
-                }
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        return 0;
+    }
+    private int recupererConfigEquipesParMatch(Connection con) throws SQLException {
+        String sql = "SELECT COUNT(e.id) FROM equipe e JOIN matchs m ON e.idMatch = m.id " +
+                     "JOIN ronde r ON m.idRonde = r.id WHERE r.idTournoi = ? GROUP BY m.id LIMIT 1"; 
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setInt(1, idTournoi);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        return 2;
+    }
+    private boolean isDerniereRondeTerminee(Connection con, int idTournoi) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM matchs m JOIN ronde r ON m.idRonde = r.id " +
+                     "WHERE r.idTournoi = ? AND r.numero = (SELECT MAX(numero) FROM ronde WHERE idTournoi = ?) AND m.statut != 'CLOSE'"; 
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setInt(1, idTournoi); pst.setInt(2, idTournoi);
+            try (ResultSet rs = pst.executeQuery()) { if (rs.next()) return rs.getInt(1) == 0; }
+        }
+        return true; 
+    }
+    private List<RondeInfo> recupererRondes(Connection con) throws SQLException {
+        List<RondeInfo> res = new ArrayList<>();
+        String sql = "SELECT r.id, r.numero, (SELECT COUNT(*) FROM matchs m WHERE m.idRonde = r.id AND m.statut != 'CLOSE') as encours " +
+                     "FROM ronde r WHERE r.idTournoi = ? ORDER BY r.numero";
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setInt(1, idTournoi);
+            try (ResultSet rs = pst.executeQuery()) {
+                while(rs.next()) res.add(new RondeInfo(rs.getInt("id"), rs.getInt("numero"), rs.getInt("encours") == 0));
             }
         }
         return res;
     }
-    private void remplirEquipes(Connection con, MatchInfo info) throws SQLException {
-        String sql = "SELECT e.id, e.score, GROUP_CONCAT(j.surnom SEPARATOR ', ') as joueurs " +
-                     "FROM equipe e JOIN composition c ON c.idEquipe = e.id JOIN joueur j ON j.id = c.idJoueur " +
-                     "WHERE e.idMatch = ? GROUP BY e.id ORDER BY e.num";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, info.idMatch);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) { 
-                    info.idEquipe1 = rs.getInt("id"); info.nomEquipe1 = rs.getString("joueurs");
-                    info.score1 = rs.getObject("score") != null ? rs.getInt("score") : null;
-                }
-                if (rs.next()) { 
-                    info.idEquipe2 = rs.getInt("id"); info.nomEquipe2 = rs.getString("joueurs");
-                    info.score2 = rs.getObject("score") != null ? rs.getInt("score") : null;
-                }
-            }
-        }
-    }
-
-    // --- VUE 3 : CLASSEMENT ---
+    
     private void afficherClassementLocal() {
         containerRondes.setVisible(false); containerMatchs.setVisible(false); containerRondes.removeAll();
         Grid<JoueurScoreLocal> grid = new Grid<>(JoueurScoreLocal.class, false);

@@ -18,23 +18,14 @@ along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
  */
 package fr.insa.toto.webui;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
+public class EquipeInfo {
+    public int id;
+    public String nom;
+    public Integer score;
 
-public class MatchInfo {
-    public int idMatch;
-    public int idTerrain;
-    public String statut; // "EN_COURS" ou "CLOSE"
-    
-    // On remplace idEquipe1, score1... par une liste dynamique
-    public List<EquipeInfo> equipes = new ArrayList<>();
-
-    public String getDescriptionDuel() {
-        if (equipes.isEmpty()) return "Match non configuré";
-        // Affiche "Joueur A VS Joueur B VS Joueur C..."
-        return equipes.stream()
-                .map(e -> e.nom)
-                .collect(Collectors.joining("  VS  "));
+    public EquipeInfo(int id, String nom, Integer score) {
+        this.id = id;
+        this.nom = nom;
+        this.score = score;
     }
 }
