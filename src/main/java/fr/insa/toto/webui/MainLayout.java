@@ -21,6 +21,8 @@ package fr.insa.toto.webui;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import fr.insa.toto.model.Utilisateur;
 import fr.insa.toto.webui.security.SessionInfo;
 
@@ -40,11 +42,20 @@ public class MainLayout extends AppLayout {
         H2 bienvenue = new H2("Bienvenue " + surnom);
         this.addToNavbar(toggle, bienvenue);
         
-        // On récupère la barre de navigation
-        this.getElement().getStyle().set("background-color", "#C19A6B"); // Un marron un peu plus soutenu
-    
-        // Si vous voulez que le menu de gauche (Drawer) soit aussi coloré
+        // Création d'un ruban pour l'entête
+        HorizontalLayout navbarContainer = new HorizontalLayout(toggle, bienvenue);
+        navbarContainer.setWidthFull();
+        navbarContainer.setAlignItems(FlexComponent.Alignment.CENTER);
+        
+        // Application du marron clair sur le ruban uniquement
+        navbarContainer.getStyle().set("background-color", "#C19A6B");
+        navbarContainer.getStyle().set("padding", "0 1em");
+
+        this.addToNavbar(navbarContainer);
+        
+        // Coloration du menu latéral (Drawer) [cite: 144]
         this.getElement().executeJs("this._drawer.style.backgroundColor='#EADDCA'");
-}
+        
     }
+}
 
