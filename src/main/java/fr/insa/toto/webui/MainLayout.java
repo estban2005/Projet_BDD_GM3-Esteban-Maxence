@@ -34,7 +34,9 @@ public class MainLayout extends AppLayout {
         
         DrawerToggle toggle = new DrawerToggle();
         
-        this.addToNavbar(toggle, new H2("ceci est l'entête"));
+        String surnom = "Esteban";
+        H2 bienvenue = new H2("Bienvenue " + surnom);
+        this.addToNavbar(toggle, bienvenue);
     }
 
 }
