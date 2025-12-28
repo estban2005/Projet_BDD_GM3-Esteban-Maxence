@@ -77,7 +77,7 @@ public class VueTableMatch extends VerticalLayout {
 
     private void actualiserListeMatchs() {
         List<MatchInfo> matchs = new ArrayList<>();
-        try (Connection con = ConnectionSimpleSGBD.connecter("localhost", 3306, "m3_emorlet01", "root", "")) {
+        try (Connection con = ConnectionSimpleSGBD.connection("localhost", 3306, "m3_emorlet01", "root", "")) {
             // Requête complexe pour récupérer les noms des joueurs par équipe pour chaque match
             String sql = "SELECT m.id, e1.id, e2.id, " +
                          "(SELECT GROUP_CONCAT(j.surnom) FROM composition c JOIN joueur j ON c.idJoueur = j.id WHERE c.idEquipe = e1.id) as nomsE1, " +
@@ -104,7 +104,7 @@ public class VueTableMatch extends VerticalLayout {
             return;
         }
         MatchInfo mi = selectMatch.getValue();
-        try (Connection con = ConnectionSimpleSGBD.connecter("localhost", 3306, "m3_emorlet01", "root", "")) {
+        try (Connection con = ConnectionSimpleSGBD.connection("localhost", 3306, "m3_emorlet01", "root", "")) {
             con.setAutoCommit(false);
             // 1. Update Score Equipe 1
             PreparedStatement ps1 = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?");
