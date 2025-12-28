@@ -36,7 +36,8 @@ public class VuePrincipale extends VerticalLayout {
         
         setAlignItems(Alignment.CENTER);
         setJustifyContentMode(JustifyContentMode.CENTER);
-
+        
+        this.getStyle().set("background-color", "#D2B48C");
         H1 titrePrincipal = new H1("Gestion de Tournoi");
         
         titrePrincipal.getStyle().set("color", "black"); 
