@@ -33,29 +33,36 @@ import fr.insa.toto.webui.security.SessionInfo;
 public class MainLayout extends AppLayout {
 
     public MainLayout() {
+        // 1. On garde le menu latéral
         this.addToDrawer(new MainMenu());
-        
+
+        // 2. On crée le bouton qui permet d'ouvrir/fermer le menu
         DrawerToggle toggle = new DrawerToggle();
+
+        // 3. Récupération du surnom
         String surnom = SessionInfo.getUtilisateurConnecte()
                         .map(Utilisateur::getSurnom) 
                         .orElse("Invité");
+
         H2 bienvenue = new H2("Bienvenue " + surnom);
-        this.addToNavbar(toggle, bienvenue);
-        
-        // Création d'un ruban pour l'entête
+        bienvenue.getStyle().set("font-size", "var(--lumo-font-size-l)");
+        bienvenue.getStyle().set("margin", "0");
+        bienvenue.getStyle().set("color", "black"); 
+
+        // 4. LE CONTENEUR (C'est ici qu'on remet TOUT ensemble)
+        // On met le 'toggle' EN PREMIER pour qu'il soit à gauche
         HorizontalLayout navbarContainer = new HorizontalLayout(toggle, bienvenue);
+
         navbarContainer.setWidthFull();
         navbarContainer.setAlignItems(FlexComponent.Alignment.CENTER);
-        
-        // Application du marron clair sur le ruban uniquement
-        navbarContainer.getStyle().set("background-color", "#C19A6B");
+        navbarContainer.getStyle().set("background-color", "#F5F5DC");
         navbarContainer.getStyle().set("padding", "0 1em");
 
+        // 5. On ajoute ce conteneur unique à la Navbar
         this.addToNavbar(navbarContainer);
-        
-        // Coloration du menu latéral (Drawer) [cite: 144]
+
+        // Couleur du menu latéral
         this.getElement().executeJs("this._drawer.style.backgroundColor='#EADDCA'");
-        
     }
 }
 
