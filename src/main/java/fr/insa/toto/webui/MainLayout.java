@@ -1,21 +1,3 @@
-/*
-Copyright 2000- Francois de Bertrand de Beuvron
-
-This file is part of CoursBeuvron.
-
-CoursBeuvron is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-CoursBeuvron is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
- */
 package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.applayout.AppLayout;
@@ -27,19 +9,18 @@ import fr.insa.toto.model.Utilisateur;
 import fr.insa.toto.webui.security.SessionInfo;
 
 /**
- *
  * @author maxen
  */
 public class MainLayout extends AppLayout {
 
     public MainLayout() {
-        // 1. On garde le menu latéral
+        // 1. Menu latéral
         this.addToDrawer(new MainMenu());
 
-        // 2. On crée le bouton qui permet d'ouvrir/fermer le menu
+        // 2. Bouton Menu (Toggle)
         DrawerToggle toggle = new DrawerToggle();
 
-        // 3. Récupération du surnom
+        // 3. Récupération du surnom depuis la session (BDD)
         String surnom = SessionInfo.getUtilisateurConnecte()
                         .map(Utilisateur::getSurnom) 
                         .orElse("Invité");
@@ -49,20 +30,24 @@ public class MainLayout extends AppLayout {
         bienvenue.getStyle().set("margin", "0");
         bienvenue.getStyle().set("color", "black"); 
 
-        // 4. LE CONTENEUR (C'est ici qu'on remet TOUT ensemble)
-        // On met le 'toggle' EN PREMIER pour qu'il soit à gauche
+        // 4. Navbar (Bandeau du haut)
         HorizontalLayout navbarContainer = new HorizontalLayout(toggle, bienvenue);
-
         navbarContainer.setWidthFull();
         navbarContainer.setAlignItems(FlexComponent.Alignment.CENTER);
+        
+        // Ta couleur Beige/Marron clair pour le haut
         navbarContainer.getStyle().set("background-color", "#F5F5DC");
         navbarContainer.getStyle().set("padding", "0 1em");
 
-        // 5. On ajoute ce conteneur unique à la Navbar
         this.addToNavbar(navbarContainer);
 
-        // Couleur du menu latéral
-        this.getElement().executeJs("this._drawer.style.backgroundColor='#EADDCA'");
+        // 5. Correction de la couleur du tiroir (Drawer)
+        // On cible spécifiquement la partie "drawer" protégée par le Shadow DOM
+        this.getElement().executeJs(
+            "const drawer = this.shadowRoot.querySelector('[part=\"drawer\"]');" +
+            "if (drawer) {" +
+            "   drawer.style.backgroundColor = '#EADDCA';" +
+            "}"
+        );
     }
 }
-
