@@ -199,8 +199,4 @@ public class ConnectionSimpleSGBD {
         }
     }
 
-    public static Connection connection(String localhost, int i, String m3_emorlet01, String root, String string) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
 }

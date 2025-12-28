@@ -12,6 +12,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
 import fr.insa.beuvron.utils.database.ConnectionSimpleSGBD;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,11 +55,12 @@ public class VueTableMatch extends VerticalLayout {
         actualiserListeMatchs();
 
         selectMatch.setItemLabelGenerator(MatchInfo::toString);
-        selectMatch.setWidth("500px");
+        selectMatch.setWidth("550px");
         if (matchSelectionne != null) selectMatch.setValue(matchSelectionne);
         selectMatch.addValueChangeListener(e -> matchSelectionne = e.getValue());
 
         labelChrono.getStyle().set("font-size", "6em").set("font-weight", "bold");
+        
         Button btnStart = new Button(enCours ? "PAUSE" : "DÉMARRER", e -> togglerChrono(e.getSource()));
         btnStart.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
@@ -77,8 +79,11 @@ public class VueTableMatch extends VerticalLayout {
 
     private void actualiserListeMatchs() {
         List<MatchInfo> matchs = new ArrayList<>();
-        try (Connection con = ConnectionSimpleSGBD.connection("localhost", 3306, "m3_emorlet01", "root", "")) {
-            // Requête complexe pour récupérer les noms des joueurs par équipe pour chaque match
+        // TESTER .getConnection SI .connect EST EN ROUGE
+        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306,
+                "m3_emorlet01",
+                "m3_emorlet01",
+                "a1d6060b")) {
             String sql = "SELECT m.id, e1.id, e2.id, " +
                          "(SELECT GROUP_CONCAT(j.surnom) FROM composition c JOIN joueur j ON c.idJoueur = j.id WHERE c.idEquipe = e1.id) as nomsE1, " +
                          "(SELECT GROUP_CONCAT(j.surnom) FROM composition c JOIN joueur j ON c.idJoueur = j.id WHERE c.idEquipe = e2.id) as nomsE2 " +
@@ -94,37 +99,38 @@ public class VueTableMatch extends VerticalLayout {
             }
             selectMatch.setItems(matchs);
         } catch (Exception e) {
-            Notification.show("Erreur chargement matchs : " + e.getMessage());
+            Notification.show("Erreur BDD : " + e.getMessage());
         }
     }
 
     private void finaliserMatch() {
         if (selectMatch.getValue() == null) {
-            Notification.show("Erreur : Sélectionnez un match !");
+            Notification.show("Veuillez sélectionner un match !");
             return;
         }
         MatchInfo mi = selectMatch.getValue();
-        try (Connection con = ConnectionSimpleSGBD.connection("localhost", 3306, "m3_emorlet01", "root", "")) {
+        // TESTER .getConnection ICI AUSSI
+        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306,
+                "m3_emorlet01",
+                "m3_emorlet01",
+                "a1d6060b")) {
             con.setAutoCommit(false);
-            // 1. Update Score Equipe 1
+            
             PreparedStatement ps1 = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?");
             ps1.setInt(1, scoreE1); ps1.setInt(2, mi.idEquipe1);
             ps1.executeUpdate();
 
-            // 2. Update Score Equipe 2
             PreparedStatement ps2 = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?");
             ps2.setInt(1, scoreE2); ps2.setInt(2, mi.idEquipe2);
             ps2.executeUpdate();
 
-            // 3. Clôturer le match
             PreparedStatement psM = con.prepareStatement("UPDATE matchs SET statut = 'TERMINE' WHERE id = ?");
             psM.setInt(1, mi.idMatch);
             psM.executeUpdate();
 
             con.commit();
-            Notification.show("Match terminé ! Les scores ont été enregistrés.");
+            Notification.show("Match terminé !");
             
-            // Reset pour le match suivant
             scoreE1 = 0; scoreE2 = 0; secondesRestantes = 600; enCours = false; matchSelectionne = null;
             UI.getCurrent().getPage().reload();
         } catch (Exception e) {
