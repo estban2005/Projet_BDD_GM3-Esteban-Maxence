@@ -20,8 +20,9 @@ package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
-import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.H2;
+import fr.insa.toto.model.Utilisateur;
+import fr.insa.toto.webui.security.SessionInfo;
 
 /**
  *
@@ -33,8 +34,9 @@ public class MainLayout extends AppLayout {
         this.addToDrawer(new MainMenu());
         
         DrawerToggle toggle = new DrawerToggle();
-        
-        String surnom = "Esteban";
+        String surnom = SessionInfo.getUtilisateurConnecte()
+                        .map(Utilisateur::getSurnom) 
+                        .orElse("Invité");
         H2 bienvenue = new H2("Bienvenue " + surnom);
         this.addToNavbar(toggle, bienvenue);
     }
