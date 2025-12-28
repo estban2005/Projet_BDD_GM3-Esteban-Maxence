@@ -39,6 +39,12 @@ public class MainLayout extends AppLayout {
                         .orElse("Invité");
         H2 bienvenue = new H2("Bienvenue " + surnom);
         this.addToNavbar(toggle, bienvenue);
+        
+        // On récupère la barre de navigation
+        this.getElement().getStyle().set("background-color", "#C19A6B"); // Un marron un peu plus soutenu
+    
+        // Si vous voulez que le menu de gauche (Drawer) soit aussi coloré
+        this.getElement().executeJs("this._drawer.style.backgroundColor='#EADDCA'");
+}
     }
 
-}
