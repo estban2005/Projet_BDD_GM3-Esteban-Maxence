@@ -18,7 +18,7 @@ along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
  */
 package fr.insa.toto.webui;
 
-import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -32,7 +32,18 @@ import com.vaadin.flow.router.Route;
 public class VuePrincipale extends VerticalLayout {
 
     public VuePrincipale() {
-        this.add(new H2("TODO"));
+        setSizeFull();
+        
+        setAlignItems(Alignment.CENTER);
+        setJustifyContentMode(JustifyContentMode.CENTER);
+
+        H1 titrePrincipal = new H1("Gestion de Tournoi");
+        
+        titrePrincipal.getStyle().set("color", "black"); 
+        titrePrincipal.getStyle().set("font-weight", "bold");
+        titrePrincipal.getStyle().set("font-size", "4em");
+
+        add(titrePrincipal);
     }
 
 }
