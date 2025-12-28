@@ -5,14 +5,14 @@ import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.page.Push;
+import com.vaadin.flow.component.page.Push; // L'import nécessaire pour le Push
 import fr.insa.toto.model.Utilisateur;
 import fr.insa.toto.webui.security.SessionInfo;
 
 /**
  * @author maxen
  */
-@Push // INDISPENSABLE pour que le chronomètre de VueTableMatch s'actualise en direct
+
 public class MainLayout extends AppLayout {
 
     public MainLayout() {
