@@ -1,21 +1,3 @@
-/*
-Copyright 2000- Francois de Bertrand de Beuvron
-
-This file is part of CoursBeuvron.
-
-CoursBeuvron is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-CoursBeuvron is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
- */
 package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.button.Button;
@@ -44,21 +26,32 @@ public class VueGestionTournoi extends VerticalLayout {
         
         ComboBox<Tournoi> tournoiSelect = new ComboBox<>("Choisir le tournoi à gérer");
         tournoiSelect.setItemLabelGenerator(Tournoi::getNom);
+        tournoiSelect.setWidth("400px");
         
         try (Connection con = ConnectionPool.getConnection()) {
             List<Tournoi> liste = Tournoi.findAll(con);
             tournoiSelect.setItems(liste);
-            if (!liste.isEmpty()) tournoiSelect.setValue(liste.get(0)); // Sélection par défaut
+            if (!liste.isEmpty()) tournoiSelect.setValue(liste.get(0));
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
         IntegerField nbEquipesField = new IntegerField("Nombre d'équipes par match");
-        nbEquipesField.setWidth("300px");
+        nbEquipesField.setWidth("400px");
         nbEquipesField.setValue(2);
         nbEquipesField.setMin(2);
+        nbEquipesField.setStepButtonsVisible(true);
+
+        // AJOUT : Champ pour la durée du round (colonne Temps_Match)
+        IntegerField tempsMatchField = new IntegerField("Durée du round (en secondes)");
+        tempsMatchField.setWidth("400px");
+        tempsMatchField.setPlaceholder("Ex: 180 pour 3 minutes");
+        tempsMatchField.setValue(60); 
+        tempsMatchField.setMin(1);
+        tempsMatchField.setStepButtonsVisible(true);
         
         Button btnGenerer = new Button("Générer un nouveau round");
+        btnGenerer.getStyle().set("margin-top", "20px");
         
         btnGenerer.addClickListener(e -> {
             Tournoi t = tournoiSelect.getValue();
@@ -70,19 +63,25 @@ public class VueGestionTournoi extends VerticalLayout {
             try (Connection con = ConnectionPool.getConnection()) {
                 int idTournoi = t.getId(); 
                 int nbEquipes = nbEquipesField.getValue() != null ? nbEquipesField.getValue() : 2;
+                int tempsMatch = tempsMatchField.getValue() != null ? tempsMatchField.getValue() : 60;
                 
-                ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipes);
-                Notification.show("Ronde générée pour le tournoi : " + t.getNom());
+                // APPEL MODIFIÉ avec 4 paramètres
+                ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipes, tempsMatch);
+                
+                Notification.show("Ronde générée avec succès (" + tempsMatch + "s) pour : " + t.getNom());
                 
             } catch (Exception ex) {
-                Notification.show("Erreur : " + ex.getMessage());
+                Notification.show("Erreur lors de la génération : " + ex.getMessage());
                 ex.printStackTrace();
             }
         });
 
-        add(new Paragraph("Sélectionnez le tournoi, puis lancez une ronde."), 
+        add(
+            new Paragraph("Sélectionnez le tournoi et configurez les paramètres de la ronde."), 
             tournoiSelect, 
             nbEquipesField, 
-            btnGenerer);
+            tempsMatchField, 
+            btnGenerer
+        );
     }
 }
