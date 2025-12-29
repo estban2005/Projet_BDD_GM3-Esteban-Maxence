@@ -33,7 +33,6 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     private boolean enCours = false;
     private MatchInfo matchSelectionne = null;
 
-    // Ajout du sélecteur de tournoi
     private ComboBox<Tournoi> selectTournoi = new ComboBox<>("1. Sélectionner le tournoi");
     private ComboBox<MatchInfo> selectMatch = new ComboBox<>("2. Sélectionner le match à arbitrer");
     
@@ -78,17 +77,14 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
 
         configurerZoneArbitrage();
 
-        // Configuration du ComboBox Tournoi
         selectTournoi.setWidth("500px");
         selectTournoi.setItemLabelGenerator(Tournoi::getNom);
         chargerListeTournois();
 
-        // Configuration du ComboBox Match
         selectMatch.setWidth("500px");
         selectMatch.setItemLabelGenerator(MatchInfo::toString);
-        selectMatch.setEnabled(false); // Désactivé par défaut
+        selectMatch.setEnabled(false); 
         
-        // Logique de mise à jour en cascade
         selectTournoi.addValueChangeListener(e -> {
             Tournoi t = e.getValue();
             if (t != null) {
@@ -126,7 +122,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
 
     private void chargerListeTournois() {
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            selectTournoi.setItems(Tournoi.findAll(con)); // Utilise la méthode statique de Tournoi
+            selectTournoi.setItems(Tournoi.findAll(con)); 
         } catch (Exception e) {
             Notification.show("Erreur lors du chargement des tournois.");
         }
@@ -135,7 +131,6 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     private void actualiserListeMatchs(int idTournoi) {
         List<MatchInfo> matchs = new ArrayList<>();
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            // Requête SQL filtrée par idTournoi via la jointure avec Ronde
             String sql = "SELECT m.id, e1.id as idE1, e2.id as idE2 " +
                          "FROM matchs m " +
                          "JOIN ronde r ON m.idRonde = r.id " +
@@ -161,13 +156,15 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
 
     private void chargerDonneesMatch() {
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            String sqlTemps = "SELECT r.Temps_Match FROM ronde r JOIN matchs m ON m.idRonde = r.id WHERE m.id = ?";
+            // Modification ici : Utilisation de la colonne 'duree' que nous avons créée
+            String sqlTemps = "SELECT r.duree FROM ronde r JOIN matchs m ON m.idRonde = r.id WHERE m.id = ?";
             PreparedStatement psT = con.prepareStatement(sqlTemps);
             psT.setInt(1, matchSelectionne.idMatch);
             ResultSet rsT = psT.executeQuery();
             if (rsT.next()) {
-                int tempsBDD = rsT.getInt("Temps_Match");
-                this.secondesRestantes = (tempsBDD > 0) ? tempsBDD : 60;
+                int minutesBDD = rsT.getInt("duree");
+                // Conversion des minutes en secondes pour le chrono
+                this.secondesRestantes = (minutesBDD > 0) ? (minutesBDD * 60) : 60;
             }
 
             PreparedStatement ps1 = con.prepareStatement("SELECT score FROM equipe WHERE id = ?");
