@@ -1,21 +1,3 @@
-/*
-Copyright 2000- Francois de Bertrand de Beuvron
-
-This file is part of CoursBeuvron.
-
-CoursBeuvron is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-CoursBeuvron is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
- */
 package fr.insa.toto.model;
 
 import java.sql.*;
@@ -29,7 +11,6 @@ public class Tournoi {
     private int nbTerrains;
     private int nbJoueursParEquipe;
 
-    // --------- Constructeurs ---------
     public Tournoi(String nom, int nbTerrains, int nbJoueursParEquipe) {
         this.id = null;
         this.nom = nom;
@@ -44,7 +25,7 @@ public class Tournoi {
         this.nbJoueursParEquipe = nbJoueursParEquipe;
     }
 
-    // --------- Getters / setters ---------
+    // Getters et Setters
     public Integer getId() { return id; }
     public String getNom() { return nom; }
     public void setNom(String nom) { this.nom = nom; }
@@ -53,10 +34,9 @@ public class Tournoi {
     public int getNbJoueursParEquipe() { return nbJoueursParEquipe; }
     public void setNbJoueursParEquipe(int nbJoueursParEquipe) { this.nbJoueursParEquipe = nbJoueursParEquipe; }
 
-    // --------- Persistence ---------
     public void insertInDB(Connection con) throws SQLException {
         if (this.id != null) {
-            throw new IllegalStateException("Tournoi déjà inséré (id != null)");
+            throw new IllegalStateException("Tournoi déjà inséré");
         }
         try (PreparedStatement pst = con.prepareStatement(
                 "insert into tournoi (nom, nbTerrains, nbJoueursParEquipe) values (?,?,?)",
@@ -89,9 +69,69 @@ public class Tournoi {
         return res;
     }
 
+    /**
+     * Supprime un tournoi et toutes ses dépendances en cascade.
+     */
+    public static void deleteById(Connection con, int idTournoi) throws SQLException {
+        boolean initialAutoCommit = con.getAutoCommit();
+        con.setAutoCommit(false); // Début de la transaction
+
+        try {
+            // 1. Supprimer les COMPOSITIONS
+            String sqlDeleteCompo = "DELETE c FROM composition c " +
+                                    "JOIN equipe e ON c.idEquipe = e.id " +
+                                    "JOIN matchs m ON e.idMatch = m.id " +
+                                    "JOIN ronde r ON m.idRonde = r.id " +
+                                    "WHERE r.idTournoi = ?";
+            try (PreparedStatement pstC = con.prepareStatement(sqlDeleteCompo)) {
+                pstC.setInt(1, idTournoi);
+                pstC.executeUpdate();
+            }
+
+            // 2. Supprimer les EQUIPES
+            String sqlDeleteEquipes = "DELETE e FROM equipe e " +
+                                      "JOIN matchs m ON e.idMatch = m.id " +
+                                      "JOIN ronde r ON m.idRonde = r.id " +
+                                      "WHERE r.idTournoi = ?";
+            try (PreparedStatement pstE = con.prepareStatement(sqlDeleteEquipes)) {
+                pstE.setInt(1, idTournoi);
+                pstE.executeUpdate();
+            }
+
+            // 3. Supprimer les MATCHS
+            String sqlDeleteMatchs = "DELETE m FROM matchs m " +
+                                     "JOIN ronde r ON m.idRonde = r.id " +
+                                     "WHERE r.idTournoi = ?";
+            try (PreparedStatement pstM = con.prepareStatement(sqlDeleteMatchs)) {
+                pstM.setInt(1, idTournoi);
+                pstM.executeUpdate();
+            }
+
+            // 4. Supprimer les RONDES
+            String sqlDeleteRondes = "DELETE FROM ronde WHERE idTournoi = ?";
+            try (PreparedStatement pstR = con.prepareStatement(sqlDeleteRondes)) {
+                pstR.setInt(1, idTournoi);
+                pstR.executeUpdate();
+            }
+
+            // 5. Supprimer le TOURNOI
+            String sqlDeleteTournoi = "DELETE FROM tournoi WHERE id = ?";
+            try (PreparedStatement pstT = con.prepareStatement(sqlDeleteTournoi)) {
+                pstT.setInt(1, idTournoi);
+                pstT.executeUpdate();
+            }
+
+            con.commit(); // Validation
+        } catch (SQLException e) {
+            con.rollback(); // Annulation en cas d'erreur
+            throw e;
+        } finally {
+            con.setAutoCommit(initialAutoCommit);
+        }
+    }
+
     @Override
     public String toString() {
         return "Tournoi{" + "id=" + id + ", nom=" + nom + '}';
     }
 }
-
