@@ -67,7 +67,7 @@ public class VueGestionTournoi extends VerticalLayout {
                 
                 // APPEL MODIFIÉ avec 4 paramètres
                 ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipes, tempsMatch);
-                
+                System.out.println("c'est fait");
                 Notification.show("Ronde générée avec succès (" + tempsMatch + "s) pour : " + t.getNom());
                 
             } catch (Exception ex) {
