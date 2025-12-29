@@ -103,7 +103,7 @@ public class VueDetailRonde extends VerticalLayout implements HasUrlParameter<In
     private void terminerLeMatch(Matchs match) {
         try (Connection con = ConnectionPool.getConnection()) {
             // Mise à jour du statut du match
-            String sql = "UPDATE matchs SET statut = 'TERMINÉ' WHERE id = ?";
+            String sql = "UPDATE matchs SET statut = 'CLOSE' WHERE id = ?";
             try (PreparedStatement pst = con.prepareStatement(sql)) {
                 pst.setInt(1, match.getId());
                 pst.executeUpdate();
