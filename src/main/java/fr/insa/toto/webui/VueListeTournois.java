@@ -1,26 +1,9 @@
-/*
-Copyright 2000- Francois de Bertrand de Beuvron
-
-This file is part of CoursBeuvron.
-
-CoursBeuvron is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-CoursBeuvron is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
- */
 package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -39,7 +22,6 @@ import fr.insa.toto.model.Tournoi;
 import fr.insa.toto.webui.security.SessionInfo;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -59,11 +41,30 @@ public class VueListeTournois extends VerticalLayout {
         grid.addColumn(Tournoi::getNbJoueursParEquipe).setHeader("J/Équipe");
         
         grid.addComponentColumn(tournoi -> {
+            HorizontalLayout actions = new HorizontalLayout();
+            
             Button btnDetails = new Button("Voir", VaadinIcon.EYE.create());
-            btnDetails.addClickListener(e -> {
-                UI.getCurrent().navigate(VueDetailTournoi.class, tournoi.getId());
-            });
-            return btnDetails;
+            btnDetails.addClickListener(e -> UI.getCurrent().navigate(VueDetailTournoi.class, tournoi.getId()));
+            actions.add(btnDetails);
+
+            if (SessionInfo.isCurUserAdmin()) {
+                Button btnDelete = new Button(VaadinIcon.TRASH.create());
+                btnDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
+                btnDelete.addClickListener(e -> {
+                    ConfirmDialog dialog = new ConfirmDialog();
+                    dialog.setHeader("Suppression définitive");
+                    dialog.setText("Supprimer " + tournoi.getNom() + " ? "
+                                   + "Ceci supprimera aussi les rondes, les matchs, les équipes et les compositions.");
+                    dialog.setCancelable(true);
+                    dialog.setConfirmText("Confirmer la suppression");
+                    dialog.setConfirmButtonTheme("error primary");
+                    
+                    dialog.addConfirmListener(event -> supprimerTournoi(tournoi.getId()));
+                    dialog.open();
+                });
+                actions.add(btnDelete);
+            }
+            return actions;
         }).setHeader("Actions");
 
         add(grid);
@@ -78,6 +79,18 @@ public class VueListeTournois extends VerticalLayout {
         rafraichirGrille();
     }
 
+    private void supprimerTournoi(int idTournoi) {
+        try (Connection con = ConnectionPool.getConnection()) {
+            Tournoi.deleteById(con, idTournoi);
+            Notification.show("Tournoi supprimé avec succès")
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            rafraichirGrille();
+        } catch (SQLException ex) {
+            Notification.show("Erreur SQL : " + ex.getMessage())
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
+    }
+
     private void rafraichirGrille() {
         try (Connection con = ConnectionPool.getConnection()) {
             List<Tournoi> liste = Tournoi.findAll(con);
@@ -89,29 +102,21 @@ public class VueListeTournois extends VerticalLayout {
 
     private void ouvrirDialogCreation() {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Créer un nouveau tournoi");
-
+        dialog.setHeaderTitle("Nouveau tournoi");
         TextField nom = new TextField("Nom");
         IntegerField nbTerrains = new IntegerField("Nb Terrains");
         nbTerrains.setValue(2);
-        nbTerrains.setMin(1);
-        
         IntegerField nbJoueurs = new IntegerField("Joueurs par équipe");
         nbJoueurs.setValue(1);
-        nbJoueurs.setMin(1);
 
         Button save = new Button("Créer", e -> {
-            if (nom.isEmpty() || nbTerrains.isEmpty() || nbJoueurs.isEmpty()) {
-                Notification.show("Remplissez tous les champs");
-                return;
-            }
+            if (nom.isEmpty()) return;
             creerTournoi(nom.getValue(), nbTerrains.getValue(), nbJoueurs.getValue());
             dialog.close();
             rafraichirGrille();
         });
         
-        FormLayout form = new FormLayout(nom, nbTerrains, nbJoueurs);
-        dialog.add(form, save);
+        dialog.add(new FormLayout(nom, nbTerrains, nbJoueurs), save);
         dialog.open();
     }
 
@@ -119,8 +124,7 @@ public class VueListeTournois extends VerticalLayout {
         try (Connection con = ConnectionPool.getConnection()) {
             Tournoi t = new Tournoi(nom, terrains, joueurs);
             t.insertInDB(con);
-            Notification.show("Tournoi créé ! ID: " + t.getId())
-                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            Notification.show("Tournoi créé !");
         } catch (SQLException ex) {
             Notification.show("Erreur : " + ex.getMessage());
         }
