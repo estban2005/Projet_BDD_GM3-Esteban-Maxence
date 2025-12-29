@@ -188,14 +188,17 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     private void finaliserMatch() {
         if (matchSelectionne == null) return;
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            // Ici on ne met plus à jour les scores (déjà fait), on change juste le statut
-            PreparedStatement psM = con.prepareStatement("UPDATE matchs SET statut = 'TERMINE' WHERE id = ?");
+            // Remplacement de 'TERMINE' par 'CLOSE'
+            PreparedStatement psM = con.prepareStatement("UPDATE matchs SET statut = 'CLOSE' WHERE id = ?");
             psM.setInt(1, matchSelectionne.idMatch);
             psM.executeUpdate();
-            Notification.show("Match terminé !");
+
+            Notification.show("Match clôturé !");
             UI.getCurrent().getPage().reload();
-        } catch (Exception e) { Notification.show("Erreur finalisation."); }
+        } catch (Exception e) { 
+            Notification.show("Erreur finalisation."); 
     }
+}
 
     private void actualiserAffichageChrono() {
         if (secondesRestantes > 0) {
