@@ -14,6 +14,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
 import fr.insa.beuvron.utils.database.ConnectionSimpleSGBD;
+import fr.insa.toto.model.Tournoi;
 import fr.insa.toto.webui.security.SessionInfo;
 
 import java.sql.*;
@@ -28,12 +29,15 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
 
     private int scoreE1 = 0;
     private int scoreE2 = 0;
-    private int secondesRestantes = 0; // Initialisé par la BDD
+    private int secondesRestantes = 0; 
     private boolean enCours = false;
     private MatchInfo matchSelectionne = null;
 
-    private ComboBox<MatchInfo> selectMatch = new ComboBox<>("Sélectionner le match à arbitrer");
-    private Span messageVide = new Span("Aucun match prévu pour le moment.");
+    // Ajout du sélecteur de tournoi
+    private ComboBox<Tournoi> selectTournoi = new ComboBox<>("1. Sélectionner le tournoi");
+    private ComboBox<MatchInfo> selectMatch = new ComboBox<>("2. Sélectionner le match à arbitrer");
+    
+    private Span messageVide = new Span("Aucun match en cours pour ce tournoi.");
     private VerticalLayout zoneArbitrage = new VerticalLayout();
     
     private H1 labelScore1 = new H1("0");
@@ -74,18 +78,36 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
 
         configurerZoneArbitrage();
 
+        // Configuration du ComboBox Tournoi
+        selectTournoi.setWidth("500px");
+        selectTournoi.setItemLabelGenerator(Tournoi::getNom);
+        chargerListeTournois();
+
+        // Configuration du ComboBox Match
         selectMatch.setWidth("500px");
         selectMatch.setItemLabelGenerator(MatchInfo::toString);
+        selectMatch.setEnabled(false); // Désactivé par défaut
         
+        // Logique de mise à jour en cascade
+        selectTournoi.addValueChangeListener(e -> {
+            Tournoi t = e.getValue();
+            if (t != null) {
+                actualiserListeMatchs(t.getId());
+                selectMatch.setEnabled(true);
+            } else {
+                selectMatch.setEnabled(false);
+                selectMatch.clear();
+            }
+            zoneArbitrage.setVisible(false);
+        });
+
         selectMatch.addValueChangeListener(e -> {
             matchSelectionne = e.getValue();
             if (timer != null) timer.shutdown();
             enCours = false;
             
             if (matchSelectionne != null) {
-                // On récupère les scores ET le temps défini pour la ronde
                 chargerDonneesMatch();
-                
                 labelNomE1.setText(matchSelectionne.nomE1);
                 labelNomE2.setText(matchSelectionne.nomE2);
                 labelScore1.setText(String.valueOf(scoreE1));
@@ -99,24 +121,55 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             }
         });
 
-        add(selectMatch, messageVide, zoneArbitrage);
-        actualiserListeMatchs();
+        add(selectTournoi, selectMatch, messageVide, zoneArbitrage);
+    }
+
+    private void chargerListeTournois() {
+        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
+            selectTournoi.setItems(Tournoi.findAll(con)); // Utilise la méthode statique de Tournoi
+        } catch (Exception e) {
+            Notification.show("Erreur lors du chargement des tournois.");
+        }
+    }
+
+    private void actualiserListeMatchs(int idTournoi) {
+        List<MatchInfo> matchs = new ArrayList<>();
+        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
+            // Requête SQL filtrée par idTournoi via la jointure avec Ronde
+            String sql = "SELECT m.id, e1.id as idE1, e2.id as idE2 " +
+                         "FROM matchs m " +
+                         "JOIN ronde r ON m.idRonde = r.id " +
+                         "JOIN equipe e1 ON m.id = e1.idMatch AND e1.num = 1 " +
+                         "JOIN equipe e2 ON m.id = e2.idMatch AND e2.num = 2 " +
+                         "WHERE m.statut = 'EN_COURS' AND r.idTournoi = ?";
+            
+            PreparedStatement ps = con.prepareStatement(sql);
+            ps.setInt(1, idTournoi);
+            ResultSet rs = ps.executeQuery();
+            
+            while (rs.next()) {
+                int idE1 = rs.getInt("idE1"); 
+                int idE2 = rs.getInt("idE2");
+                matchs.add(new MatchInfo(rs.getInt("id"), idE1, idE2, "Equipe " + idE1, "Equipe " + idE2));
+            }
+            selectMatch.setItems(matchs);
+            messageVide.setVisible(matchs.isEmpty());
+        } catch (Exception e) { 
+            Notification.show("Erreur chargement : " + e.getMessage()); 
+        }
     }
 
     private void chargerDonneesMatch() {
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            // 1. Récupération du temps de la ronde liée au match
             String sqlTemps = "SELECT r.Temps_Match FROM ronde r JOIN matchs m ON m.idRonde = r.id WHERE m.id = ?";
             PreparedStatement psT = con.prepareStatement(sqlTemps);
             psT.setInt(1, matchSelectionne.idMatch);
             ResultSet rsT = psT.executeQuery();
             if (rsT.next()) {
-                // On récupère le temps de la ronde (si NULL en BDD, on met 60 par défaut)
                 int tempsBDD = rsT.getInt("Temps_Match");
                 this.secondesRestantes = (tempsBDD > 0) ? tempsBDD : 60;
             }
 
-            // 2. Récupération des scores actuels
             PreparedStatement ps1 = con.prepareStatement("SELECT score FROM equipe WHERE id = ?");
             ps1.setInt(1, matchSelectionne.idEquipe1);
             ResultSet rs1 = ps1.executeQuery();
@@ -180,24 +233,6 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         VerticalLayout v = new VerticalLayout(nomLabel, scoreLabel, bPlus, bMoins);
         v.setAlignItems(Alignment.CENTER);
         return v;
-    }
-
-    private void actualiserListeMatchs() {
-        List<MatchInfo> matchs = new ArrayList<>();
-        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            String sql = "SELECT m.id, e1.id as idE1, e2.id as idE2 FROM matchs m " +
-                         "JOIN equipe e1 ON m.id = e1.idMatch AND e1.num = 1 " +
-                         "JOIN equipe e2 ON m.id = e2.idMatch AND e2.num = 2 " +
-                         "WHERE m.statut = 'EN_COURS'";
-            ResultSet rs = con.createStatement().executeQuery(sql);
-            while (rs.next()) {
-                int idE1 = rs.getInt("idE1"); int idE2 = rs.getInt("idE2");
-                matchs.add(new MatchInfo(rs.getInt("id"), idE1, idE2, "Equipe " + idE1, "Equipe " + idE2));
-            }
-            selectMatch.setItems(matchs);
-            selectMatch.setVisible(!matchs.isEmpty());
-            messageVide.setVisible(matchs.isEmpty());
-        } catch (Exception e) { Notification.show("Erreur chargement : " + e.getMessage()); }
     }
 
     private void finaliserMatch() {
