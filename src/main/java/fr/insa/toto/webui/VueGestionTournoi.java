@@ -42,7 +42,6 @@ public class VueGestionTournoi extends VerticalLayout {
         nbEquipesField.setMin(2);
         nbEquipesField.setStepButtonsVisible(true);
 
-        // AJOUT : Champ pour la durée du round (colonne Temps_Match)
         IntegerField tempsMatchField = new IntegerField("Durée du round (en secondes)");
         tempsMatchField.setWidth("400px");
         tempsMatchField.setPlaceholder("Ex: 180 pour 3 minutes");
@@ -65,9 +64,7 @@ public class VueGestionTournoi extends VerticalLayout {
                 int nbEquipes = nbEquipesField.getValue() != null ? nbEquipesField.getValue() : 2;
                 int tempsMatch = tempsMatchField.getValue() != null ? tempsMatchField.getValue() : 60;
                 
-                // APPEL MODIFIÉ avec 4 paramètres
                 ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipes, tempsMatch);
-                System.out.println("c'est fait");
                 Notification.show("Ronde générée avec succès (" + tempsMatch + "s) pour : " + t.getNom());
                 
             } catch (Exception ex) {

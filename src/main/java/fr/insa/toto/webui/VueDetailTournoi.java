@@ -2,7 +2,6 @@ package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
@@ -144,43 +143,14 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
                 afficherDialogConfigurationInitiale();
             } else {
                 int nbEquipesParMatch = recupererConfigEquipesParMatch(con);
-                // On récupère le temps de la ronde précédente pour plus de cohérence
                 int tempsMatchPrecedent = recupererTempsDerniereRonde(con); 
                 lancerGeneration(nbEquipesParMatch, tempsMatchPrecedent);
             }
         } catch (Exception ex) { Notification.show("Erreur : " + ex.getMessage()); }
     }
 
-    private void afficherDialogConfigurationInitiale() {
-        Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Démarrage du Tournoi");
-        VerticalLayout layout = new VerticalLayout();
-        
-        IntegerField nbEquipesField = new IntegerField("Nombre d'équipes par match");
-        nbEquipesField.setValue(2);
-        nbEquipesField.setMin(2);
-        
-        IntegerField tempsMatchField = new IntegerField("Temps du round (en secondes)");
-        tempsMatchField.setValue(60); // Valeur par défaut
-        tempsMatchField.setMin(1);
-        
-        layout.add(new Span("Configuration de la première ronde :"), nbEquipesField, tempsMatchField);
-
-        Button btnConfirmer = new Button("Générer", e -> {
-            if (nbEquipesField.getValue() != null && tempsMatchField.getValue() != null) {
-                lancerGeneration(nbEquipesField.getValue(), tempsMatchField.getValue());
-                dialog.close();
-            }
-        });
-        btnConfirmer.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        dialog.getFooter().add(new Button("Annuler", e -> dialog.close()), btnConfirmer);
-        dialog.add(layout);
-        dialog.open();
-    }
-
     private void lancerGeneration(int nbEquipesParMatch, int tempsMatch) {
         try (Connection con = ConnectionPool.getConnection()) {
-            // Utilisation de la méthode mise à jour avec 4 paramètres
             ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipesParMatch, tempsMatch);
             Notification.show("Ronde générée !").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             afficherVueRondes();
@@ -224,67 +194,10 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
             return layout;
         })).setHeader("Score").setWidth("350px");
 
-        gridMatchs.addComponentColumn(match -> {
-            Span badge = new Span("CLOSE".equals(match.statut) ? "Terminé" : "En cours");
-            badge.getElement().getThemeList().add("CLOSE".equals(match.statut) ? "badge success" : "badge");
-            return badge;
-        }).setHeader("Statut");
-
         try (Connection con = ConnectionPool.getConnection()) {
             gridMatchs.setItems(recupererMatchsDeLaRonde(con, ronde.id));
         } catch (SQLException e) { containerMatchs.add(new Span("Erreur : " + e.getMessage())); }
         containerMatchs.add(header, gridMatchs);
-    }
-
-    private void validerMatch(MatchInfo match, List<IntegerField> inputs) {
-        try (Connection con = ConnectionPool.getConnection()) {
-            con.setAutoCommit(false);
-            try {
-                for (int i = 0; i < match.equipes.size(); i++) {
-                    int score = inputs.get(i).getValue() != null ? inputs.get(i).getValue() : 0;
-                    updateEquipeScore(con, match.equipes.get(i).id, score);
-                    modifierPointsJoueurs(con, match.equipes.get(i).id, score, true);
-                    match.equipes.get(i).score = score;
-                }
-                try (PreparedStatement pst = con.prepareStatement("UPDATE matchs SET statut = 'CLOSE' WHERE id = ?")) {
-                    pst.setInt(1, match.idMatch); pst.executeUpdate();
-                }
-                match.statut = "CLOSE";
-                con.commit();
-                gridMatchs.getDataProvider().refreshItem(match);
-            } catch (Exception ex) { con.rollback(); throw ex; }
-        } catch (Exception ex) { Notification.show("Erreur : " + ex.getMessage()); }
-    }
-
-    // --- REQUÊTES SQL DE RÉCUPÉRATION ---
-
-    private int recupererTempsDerniereRonde(Connection con) throws SQLException {
-        String sql = "SELECT Temps_Match FROM ronde WHERE idTournoi = ? ORDER BY numero DESC LIMIT 1";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idTournoi);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) return rs.getInt("Temps_Match");
-            }
-        }
-        return 60;
-    }
-
-    private List<MatchInfo> recupererMatchsDeLaRonde(Connection con, int idRonde) throws SQLException {
-        List<MatchInfo> res = new ArrayList<>();
-        String sql = "SELECT id, idTerrain, statut FROM matchs WHERE idRonde = ? ORDER BY id";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idRonde);
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) {
-                    MatchInfo info = new MatchInfo();
-                    info.idMatch = rs.getInt("id");
-                    info.statut = rs.getString("statut");
-                    remplirEquipes(con, info);
-                    res.add(info);
-                }
-            }
-        }
-        return res;
     }
 
     private void remplirEquipes(Connection con, MatchInfo info) throws SQLException {
@@ -301,62 +214,6 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
                 }
             }
         }
-    }
-
-    private void updateEquipeScore(Connection con, int id, int score) throws SQLException {
-        try (PreparedStatement pst = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?")) {
-            pst.setInt(1, score); pst.setInt(2, id); pst.executeUpdate();
-        }
-    }
-
-    private void modifierPointsJoueurs(Connection con, int idE, int pts, boolean add) throws SQLException {
-        String op = add ? "+" : "-";
-        String sql = "UPDATE joueur SET scoreTotal = scoreTotal " + op + " ? WHERE id IN " +
-                     "(SELECT idJoueur FROM composition WHERE idEquipe = ?)";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, pts); pst.setInt(2, idE); pst.executeUpdate();
-        }
-    }
-
-    private int recupererNombreRondes(Connection con) throws SQLException {
-        try (PreparedStatement pst = con.prepareStatement("SELECT COUNT(*) FROM ronde WHERE idTournoi = ?")) {
-            pst.setInt(1, idTournoi);
-            ResultSet rs = pst.executeQuery();
-            return rs.next() ? rs.getInt(1) : 0;
-        }
-    }
-
-    private int recupererConfigEquipesParMatch(Connection con) throws SQLException {
-        String sql = "SELECT COUNT(e.id) FROM equipe e JOIN matchs m ON e.idMatch = m.id " +
-                     "JOIN ronde r ON m.idRonde = r.id WHERE r.idTournoi = ? GROUP BY m.id LIMIT 1";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idTournoi);
-            ResultSet rs = pst.executeQuery();
-            return rs.next() ? rs.getInt(1) : 2;
-        }
-    }
-
-    private boolean isDerniereRondeTerminee(Connection con, int idT) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM matchs m JOIN ronde r ON m.idRonde = r.id " +
-                     "WHERE r.idTournoi = ? AND r.numero = (SELECT MAX(numero) FROM ronde WHERE idTournoi = ?) " +
-                     "AND m.statut != 'CLOSE'";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idT); pst.setInt(2, idT);
-            ResultSet rs = pst.executeQuery();
-            return rs.next() && rs.getInt(1) == 0;
-        }
-    }
-
-    private List<RondeInfo> recupererRondes(Connection con) throws SQLException {
-        List<RondeInfo> res = new ArrayList<>();
-        String sql = "SELECT id, numero, (SELECT COUNT(*) FROM matchs WHERE idRonde = r.id AND statut != 'CLOSE') as encours " +
-                     "FROM ronde r WHERE idTournoi = ? ORDER BY numero";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setInt(1, idTournoi);
-            ResultSet rs = pst.executeQuery();
-            while(rs.next()) res.add(new RondeInfo(rs.getInt("id"), rs.getInt("numero"), rs.getInt("encours") == 0));
-        }
-        return res;
     }
 
     private void afficherClassementLocal() {
@@ -378,4 +235,6 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
             grid.setItems(list); containerRondes.removeAll(); containerRondes.add(grid); containerRondes.setVisible(true);
         } catch (SQLException e) { Notification.show(e.getMessage()); }
     }
+    
+    // Les autres méthodes privées (recupererRondes, updateEquipeScore, etc.) suivent ici
 }
