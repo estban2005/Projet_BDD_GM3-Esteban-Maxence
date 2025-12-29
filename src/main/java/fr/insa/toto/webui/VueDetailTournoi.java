@@ -122,9 +122,12 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
 
         gridRondes.addComponentColumn(r -> {
             Button btnVoir = new Button("Voir les matchs", VaadinIcon.ARROW_RIGHT.create());
-            btnVoir.addClickListener(e -> afficherVueMatchs(r));
+            btnVoir.addClickListener(e -> {
+                // On utilise la classe cible et l'id comme paramètre
+                getUI().ifPresent(ui -> ui.navigate(VueDetailRonde.class, r.id));
+            });
             return btnVoir;
-        });
+        }).setHeader("Action");
 
         try (Connection con = ConnectionPool.getConnection()) {
             List<RondeInfo> rondes = recupererRondes(con);
