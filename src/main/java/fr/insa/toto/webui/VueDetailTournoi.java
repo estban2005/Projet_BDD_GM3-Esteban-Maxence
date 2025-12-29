@@ -202,7 +202,7 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
 
     private void lancerGeneration(int nbEquipesParMatch) {
         try (Connection con = ConnectionPool.getConnection()) {
-            ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipesParMatch,1);
+            ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipesParMatch);
             Notification.show("Ronde générée !").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             afficherVueRondes();
         } catch (Exception ex) {
