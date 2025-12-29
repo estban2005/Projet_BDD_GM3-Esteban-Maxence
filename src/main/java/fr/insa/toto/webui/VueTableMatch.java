@@ -28,7 +28,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
 
     private int scoreE1 = 0;
     private int scoreE2 = 0;
-    private int secondesRestantes = 10; 
+    private int secondesRestantes = 0; // Initialisé par la BDD
     private boolean enCours = false;
     private MatchInfo matchSelectionne = null;
 
@@ -80,12 +80,12 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         selectMatch.addValueChangeListener(e -> {
             matchSelectionne = e.getValue();
             if (timer != null) timer.shutdown();
-            secondesRestantes = 10;
             enCours = false;
             
             if (matchSelectionne != null) {
-                // On récupère les scores actuels en BDD au cas où le match a déjà commencé
-                recupererScoresActuels();
+                // On récupère les scores ET le temps défini pour la ronde
+                chargerDonneesMatch();
+                
                 labelNomE1.setText(matchSelectionne.nomE1);
                 labelNomE2.setText(matchSelectionne.nomE2);
                 labelScore1.setText(String.valueOf(scoreE1));
@@ -103,8 +103,20 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         actualiserListeMatchs();
     }
 
-    private void recupererScoresActuels() {
+    private void chargerDonneesMatch() {
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
+            // 1. Récupération du temps de la ronde liée au match
+            String sqlTemps = "SELECT r.Temps_Match FROM ronde r JOIN matchs m ON m.idRonde = r.id WHERE m.id = ?";
+            PreparedStatement psT = con.prepareStatement(sqlTemps);
+            psT.setInt(1, matchSelectionne.idMatch);
+            ResultSet rsT = psT.executeQuery();
+            if (rsT.next()) {
+                // On récupère le temps de la ronde (si NULL en BDD, on met 60 par défaut)
+                int tempsBDD = rsT.getInt("Temps_Match");
+                this.secondesRestantes = (tempsBDD > 0) ? tempsBDD : 60;
+            }
+
+            // 2. Récupération des scores actuels
             PreparedStatement ps1 = con.prepareStatement("SELECT score FROM equipe WHERE id = ?");
             ps1.setInt(1, matchSelectionne.idEquipe1);
             ResultSet rs1 = ps1.executeQuery();
@@ -114,7 +126,11 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             ps2.setInt(1, matchSelectionne.idEquipe2);
             ResultSet rs2 = ps2.executeQuery();
             if (rs2.next()) scoreE2 = rs2.getInt(1);
-        } catch (Exception e) { e.printStackTrace(); }
+
+        } catch (Exception e) { 
+            e.printStackTrace();
+            Notification.show("Erreur lors du chargement des données.");
+        }
     }
 
     private void configurerZoneArbitrage() {
@@ -139,7 +155,6 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         zoneArbitrage.add(labelChrono, btnStart, layoutScores, btnEnregistrer);
     }
 
-    // NOUVELLE MÉTHODE : Sauvegarde immédiate du score
     private void sauvegarderScoreImmediat(int idEquipe, int nouveauScore) {
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
             PreparedStatement ps = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?");
@@ -188,7 +203,6 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     private void finaliserMatch() {
         if (matchSelectionne == null) return;
         try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            // Remplacement de 'TERMINE' par 'CLOSE'
             PreparedStatement psM = con.prepareStatement("UPDATE matchs SET statut = 'CLOSE' WHERE id = ?");
             psM.setInt(1, matchSelectionne.idMatch);
             psM.executeUpdate();
@@ -197,8 +211,8 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             UI.getCurrent().getPage().reload();
         } catch (Exception e) { 
             Notification.show("Erreur finalisation."); 
+        }
     }
-}
 
     private void actualiserAffichageChrono() {
         if (secondesRestantes > 0) {
@@ -220,9 +234,13 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         ui.setPollInterval(1000);
         timer = Executors.newSingleThreadScheduledExecutor();
         timer.scheduleAtFixedRate(() -> ui.access(() -> {
-            if (secondesRestantes > 0 && enCours) { secondesRestantes--; actualiserAffichageChrono(); } 
+            if (secondesRestantes > 0 && enCours) { 
+                secondesRestantes--; 
+                actualiserAffichageChrono(); 
+            } 
             else if (secondesRestantes <= 0) {
-                enCours = false; actualiserAffichageChrono();
+                enCours = false; 
+                actualiserAffichageChrono();
                 if (timer != null) timer.shutdown();
                 ui.setPollInterval(-1);
             }
