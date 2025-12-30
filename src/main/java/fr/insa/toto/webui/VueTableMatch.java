@@ -13,7 +13,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
-import fr.insa.beuvron.utils.database.ConnectionSimpleSGBD;
+import fr.insa.beuvron.utils.database.ConnectionPool;
 import fr.insa.toto.model.Tournoi;
 import fr.insa.toto.webui.security.SessionInfo;
 
@@ -27,8 +27,6 @@ import java.util.concurrent.TimeUnit;
 @Route(value = "table-match", layout = MainLayout.class)
 public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver {
 
-    private int scoreE1 = 0;
-    private int scoreE2 = 0;
     private int secondesRestantes = 0; 
     private boolean enCours = false;
     private MatchInfo matchSelectionne = null;
@@ -38,25 +36,18 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     
     private Span messageVide = new Span("Aucun match en cours pour ce tournoi.");
     private VerticalLayout zoneArbitrage = new VerticalLayout();
+    private HorizontalLayout layoutEquipes = new HorizontalLayout(); // Zone dynamique pour les scores
     
-    private H1 labelScore1 = new H1("0");
-    private H1 labelScore2 = new H1("0");
-    private H2 labelNomE1 = new H2("Équipe 1");
-    private H2 labelNomE2 = new H2("Équipe 2");
     private Span labelChrono = new Span();
     private Button btnStart;
     private ScheduledExecutorService timer;
 
+    // Classe locale pour stocker les infos de match simplifiées
     public static class MatchInfo {
         int idMatch;
-        int idEquipe1, idEquipe2;
-        String nomE1, nomE2;
-        public MatchInfo(int idM, int idE1, int idE2, String n1, String n2) {
-            this.idMatch = idM; this.idEquipe1 = idE1; this.idEquipe2 = idE2;
-            this.nomE1 = n1; this.nomE2 = n2;
-        }
+        public MatchInfo(int idM) { this.idMatch = idM; }
         @Override
-        public String toString() { return "Match n°" + idMatch + " (" + nomE1 + " vs " + nomE2 + ")"; }
+        public String toString() { return "Match n°" + idMatch; }
     }
 
     @Override
@@ -70,7 +61,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     public VueTableMatch() {
         setSizeFull();
         setAlignItems(Alignment.CENTER);
-        getStyle().set("background-color", "#D2B48C");
+        getStyle().set("background-color", "#E6E6FA"); // Mauve clair pour harmoniser
 
         messageVide.getStyle().set("color", "red").set("font-weight", "bold").set("font-size", "1.5em");
         messageVide.setVisible(false);
@@ -86,9 +77,8 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         selectMatch.setEnabled(false); 
         
         selectTournoi.addValueChangeListener(e -> {
-            Tournoi t = e.getValue();
-            if (t != null) {
-                actualiserListeMatchs(t.getId());
+            if (e.getValue() != null) {
+                actualiserListeMatchs(e.getValue().getId());
                 selectMatch.setEnabled(true);
             } else {
                 selectMatch.setEnabled(false);
@@ -103,11 +93,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             enCours = false;
             
             if (matchSelectionne != null) {
-                chargerDonneesMatch();
-                labelNomE1.setText(matchSelectionne.nomE1);
-                labelNomE2.setText(matchSelectionne.nomE2);
-                labelScore1.setText(String.valueOf(scoreE1));
-                labelScore2.setText(String.valueOf(scoreE2));
+                chargerDonneesMatchDynamique();
                 btnStart.setText("DÉMARRER");
                 btnStart.setEnabled(true);
                 actualiserAffichageChrono();
@@ -121,129 +107,114 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     }
 
     private void chargerListeTournois() {
-        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
+        try (Connection con = ConnectionPool.getConnection()) {
             selectTournoi.setItems(Tournoi.findAll(con)); 
         } catch (Exception e) {
-            Notification.show("Erreur lors du chargement des tournois.");
+            Notification.show("Erreur chargement tournois");
         }
     }
 
     private void actualiserListeMatchs(int idTournoi) {
         List<MatchInfo> matchs = new ArrayList<>();
-        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            String sql = "SELECT m.id, e1.id as idE1, e2.id as idE2 " +
-                         "FROM matchs m " +
-                         "JOIN ronde r ON m.idRonde = r.id " +
-                         "JOIN equipe e1 ON m.id = e1.idMatch AND e1.num = 1 " +
-                         "JOIN equipe e2 ON m.id = e2.idMatch AND e2.num = 2 " +
+        try (Connection con = ConnectionPool.getConnection()) {
+            String sql = "SELECT m.id FROM matchs m JOIN ronde r ON m.idRonde = r.id " +
                          "WHERE m.statut = 'EN_COURS' AND r.idTournoi = ?";
-            
             PreparedStatement ps = con.prepareStatement(sql);
             ps.setInt(1, idTournoi);
             ResultSet rs = ps.executeQuery();
-            
             while (rs.next()) {
-                int idE1 = rs.getInt("idE1"); 
-                int idE2 = rs.getInt("idE2");
-                matchs.add(new MatchInfo(rs.getInt("id"), idE1, idE2, "Equipe " + idE1, "Equipe " + idE2));
+                matchs.add(new MatchInfo(rs.getInt("id")));
             }
             selectMatch.setItems(matchs);
             messageVide.setVisible(matchs.isEmpty());
-        } catch (Exception e) { 
-            Notification.show("Erreur chargement : " + e.getMessage()); 
-        }
+        } catch (Exception e) { Notification.show("Erreur : " + e.getMessage()); }
     }
 
-    private void chargerDonneesMatch() {
-        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            // Modification ici : Utilisation de la colonne 'duree' que nous avons créée
-            String sqlTemps = "SELECT r.duree FROM ronde r JOIN matchs m ON m.idRonde = r.id WHERE m.id = ?";
-            PreparedStatement psT = con.prepareStatement(sqlTemps);
+    private void chargerDonneesMatchDynamique() {
+        layoutEquipes.removeAll();
+        try (Connection con = ConnectionPool.getConnection()) {
+            // Temps du match
+            String sqlT = "SELECT r.duree FROM ronde r JOIN matchs m ON m.idRonde = r.id WHERE m.id = ?";
+            PreparedStatement psT = con.prepareStatement(sqlT);
             psT.setInt(1, matchSelectionne.idMatch);
             ResultSet rsT = psT.executeQuery();
-            if (rsT.next()) {
-                int minutesBDD = rsT.getInt("duree");
-                // Conversion des minutes en secondes pour le chrono
-                this.secondesRestantes = (minutesBDD > 0) ? (minutesBDD * 60) : 60;
+            if (rsT.next()) this.secondesRestantes = rsT.getInt("duree") * 60;
+
+            // Création dynamique des zones de score pour chaque équipe
+            String sqlE = "SELECT id, num, score FROM equipe WHERE idMatch = ? ORDER BY num";
+            PreparedStatement psE = con.prepareStatement(sqlE);
+            psE.setInt(1, matchSelectionne.idMatch);
+            ResultSet rsE = psE.executeQuery();
+            
+            while (rsE.next()) {
+                int idEq = rsE.getInt("id");
+                int numEq = rsE.getInt("num");
+                int scoreInit = rsE.getInt("score");
+                layoutEquipes.add(creerZoneScoreDynamique(idEq, numEq, scoreInit));
             }
-
-            PreparedStatement ps1 = con.prepareStatement("SELECT score FROM equipe WHERE id = ?");
-            ps1.setInt(1, matchSelectionne.idEquipe1);
-            ResultSet rs1 = ps1.executeQuery();
-            if (rs1.next()) scoreE1 = rs1.getInt(1);
-
-            PreparedStatement ps2 = con.prepareStatement("SELECT score FROM equipe WHERE id = ?");
-            ps2.setInt(1, matchSelectionne.idEquipe2);
-            ResultSet rs2 = ps2.executeQuery();
-            if (rs2.next()) scoreE2 = rs2.getInt(1);
-
-        } catch (Exception e) { 
-            e.printStackTrace();
-            Notification.show("Erreur lors du chargement des données.");
-        }
+        } catch (Exception e) { Notification.show("Erreur données match"); }
     }
 
     private void configurerZoneArbitrage() {
         zoneArbitrage.setAlignItems(Alignment.CENTER);
         zoneArbitrage.setVisible(false);
-        labelChrono.getStyle().set("font-size", "6em").set("font-weight", "bold");
+        labelChrono.getStyle().set("font-size", "5em").set("font-weight", "bold");
         btnStart = new Button("DÉMARRER", e -> togglerChrono(e.getSource()));
         btnStart.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        actualiserAffichageChrono();
+        
+        layoutEquipes.setWidthFull();
+        layoutEquipes.setJustifyContentMode(JustifyContentMode.CENTER);
+        layoutEquipes.getStyle().set("flex-wrap", "wrap"); // Pour que les équipes passent à la ligne si besoin
 
-        HorizontalLayout layoutScores = new HorizontalLayout(
-            createZoneScore(labelNomE1, labelScore1, true),
-            new H2(" VS "),
-            createZoneScore(labelNomE2, labelScore2, false)
-        );
-        layoutScores.setWidthFull();
-        layoutScores.setJustifyContentMode(JustifyContentMode.AROUND);
+        Button btnEnd = new Button("Terminer le match", e -> finaliserMatch());
+        btnEnd.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_PRIMARY);
 
-        Button btnEnregistrer = new Button("Terminer le match", e -> finaliserMatch());
-        btnEnregistrer.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_PRIMARY);
-
-        zoneArbitrage.add(labelChrono, btnStart, layoutScores, btnEnregistrer);
+        zoneArbitrage.add(labelChrono, btnStart, layoutEquipes, btnEnd);
     }
 
-    private void sauvegarderScoreImmediat(int idEquipe, int nouveauScore) {
-        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            PreparedStatement ps = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?");
-            ps.setInt(1, nouveauScore);
-            ps.setInt(2, idEquipe);
-            ps.executeUpdate();
-        } catch (Exception e) {
-            Notification.show("Erreur synchro BDD : " + e.getMessage());
-        }
-    }
+    private VerticalLayout creerZoneScoreDynamique(int idEquipe, int num, int scoreActuel) {
+        H2 nomLabel = new H2("Équipe " + num);
+        H1 scoreLabel = new H1(String.valueOf(scoreActuel));
+        
+        // Stockage local du score pour cette instance de composant
+        final int[] scoreLocal = {scoreActuel};
 
-    private VerticalLayout createZoneScore(H2 nomLabel, H1 scoreLabel, boolean isE1) {
         Button bPlus = new Button("+1", e -> {
-            if(isE1) { scoreE1++; sauvegarderScoreImmediat(matchSelectionne.idEquipe1, scoreE1); } 
-            else { scoreE2++; sauvegarderScoreImmediat(matchSelectionne.idEquipe2, scoreE2); }
-            scoreLabel.setText(String.valueOf(isE1 ? scoreE1 : scoreE2));
+            scoreLocal[0]++;
+            scoreLabel.setText(String.valueOf(scoreLocal[0]));
+            sauvegarderScore(idEquipe, scoreLocal[0]);
         });
         Button bMoins = new Button("-1", e -> {
-            if(isE1) { if(scoreE1 > 0) scoreE1--; sauvegarderScoreImmediat(matchSelectionne.idEquipe1, scoreE1); } 
-            else { if(scoreE2 > 0) scoreE2--; sauvegarderScoreImmediat(matchSelectionne.idEquipe2, scoreE2); }
-            scoreLabel.setText(String.valueOf(isE1 ? scoreE1 : scoreE2));
+            if (scoreLocal[0] > 0) {
+                scoreLocal[0]--;
+                scoreLabel.setText(String.valueOf(scoreLocal[0]));
+                sauvegarderScore(idEquipe, scoreLocal[0]);
+            }
         });
+
         VerticalLayout v = new VerticalLayout(nomLabel, scoreLabel, bPlus, bMoins);
         v.setAlignItems(Alignment.CENTER);
+        v.getStyle().set("border", "1px solid gray").set("border-radius", "10px").set("padding", "10px");
+        v.setWidth("200px");
         return v;
     }
 
-    private void finaliserMatch() {
-        if (matchSelectionne == null) return;
-        try (Connection con = ConnectionSimpleSGBD.connectMySQL("92.222.25.165", 3306, "m3_emorlet01", "m3_emorlet01", "a1d6060b")) {
-            PreparedStatement psM = con.prepareStatement("UPDATE matchs SET statut = 'CLOSE' WHERE id = ?");
-            psM.setInt(1, matchSelectionne.idMatch);
-            psM.executeUpdate();
+    private void sauvegarderScore(int idEq, int score) {
+        try (Connection con = ConnectionPool.getConnection()) {
+            PreparedStatement ps = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?");
+            ps.setInt(1, score); ps.setInt(2, idEq);
+            ps.executeUpdate();
+        } catch (Exception e) { Notification.show("Erreur BDD"); }
+    }
 
-            Notification.show("Match clôturé !");
+    private void finaliserMatch() {
+        try (Connection con = ConnectionPool.getConnection()) {
+            PreparedStatement ps = con.prepareStatement("UPDATE matchs SET statut = 'CLOSE' WHERE id = ?");
+            ps.setInt(1, matchSelectionne.idMatch);
+            ps.executeUpdate();
+            Notification.show("Match terminé !");
             UI.getCurrent().getPage().reload();
-        } catch (Exception e) { 
-            Notification.show("Erreur finalisation."); 
-        }
+        } catch (Exception e) { Notification.show("Erreur finalisation"); }
     }
 
     private void actualiserAffichageChrono() {
@@ -251,7 +222,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             labelChrono.setText(String.format("%02d:%02d", secondesRestantes / 60, secondesRestantes % 60));
             labelChrono.getStyle().set("color", "black");
         } else {
-            labelChrono.setText("MATCH TERMINÉ");
+            labelChrono.setText("TERMINÉ");
             labelChrono.getStyle().set("color", "red");
             if (btnStart != null) btnStart.setEnabled(false);
         }
@@ -266,13 +237,9 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         ui.setPollInterval(1000);
         timer = Executors.newSingleThreadScheduledExecutor();
         timer.scheduleAtFixedRate(() -> ui.access(() -> {
-            if (secondesRestantes > 0 && enCours) { 
-                secondesRestantes--; 
-                actualiserAffichageChrono(); 
-            } 
+            if (secondesRestantes > 0 && enCours) { secondesRestantes--; actualiserAffichageChrono(); } 
             else if (secondesRestantes <= 0) {
-                enCours = false; 
-                actualiserAffichageChrono();
+                enCours = false; actualiserAffichageChrono();
                 if (timer != null) timer.shutdown();
                 ui.setPollInterval(-1);
             }
