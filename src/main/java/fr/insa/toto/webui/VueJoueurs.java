@@ -1,21 +1,3 @@
-/*
-Copyright 2000- Francois de Bertrand de Beuvron
-
-This file is part of CoursBeuvron.
-
-CoursBeuvron is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-CoursBeuvron is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
- */
 package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.button.Button;
@@ -30,7 +12,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.value.ValueChangeMode; // Import nécessaire pour la recherche
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import fr.insa.beuvron.utils.database.ConnectionPool;
@@ -41,6 +23,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Route(value = "joueurs", layout = MainLayout.class)
 @PageTitle("Gestion des Joueurs")
@@ -48,6 +31,10 @@ public class VueJoueurs extends VerticalLayout {
 
     private Grid<Joueur> grid;
     
+    // Nouveaux champs pour la recherche
+    private TextField filtreSurnom = new TextField("Rechercher par surnom");
+
+    // Champs pour le formulaire d'édition
     private TextField nom = new TextField("Nom");
     private TextField prenom = new TextField("Prénom");
     private TextField surnom = new TextField("Surnom");
@@ -55,6 +42,15 @@ public class VueJoueurs extends VerticalLayout {
 
     public VueJoueurs() {
         add(new H2("Liste des Joueurs"));
+
+        // Configuration du champ de recherche
+        filtreSurnom.setPlaceholder("Tapez un surnom...");
+        filtreSurnom.setClearButtonVisible(true);
+        // Mise à jour de la grille en temps réel pendant la saisie
+        filtreSurnom.setValueChangeMode(ValueChangeMode.EAGER);
+        filtreSurnom.addValueChangeListener(e -> rafraichirGrille());
+        
+        add(filtreSurnom);
 
         grid = new Grid<>(Joueur.class, false);
         grid.addColumn(Joueur::getId).setHeader("ID").setWidth("50px").setFlexGrow(0);
@@ -89,6 +85,16 @@ public class VueJoueurs extends VerticalLayout {
     private void rafraichirGrille() {
         try (Connection con = ConnectionPool.getConnection()) {
             List<Joueur> joueurs = Joueur.findAll(con);
+            
+            // Logique de filtrage
+            String search = filtreSurnom.getValue();
+            if (search != null && !search.isEmpty()) {
+                joueurs = joueurs.stream()
+                        .filter(j -> j.getSurnom() != null && 
+                                j.getSurnom().toLowerCase().contains(search.toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+            
             grid.setItems(joueurs);
         } catch (SQLException e) {
             Notification.show("Erreur de chargement : " + e.getMessage());
@@ -145,10 +151,12 @@ public class VueJoueurs extends VerticalLayout {
 
     private void supprimerJoueur(Joueur joueur) {
         try (Connection con = ConnectionPool.getConnection()) {
+            // Suppression des dépendances dans la table composition
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM composition WHERE idJoueur = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
             }
+            // Suppression du joueur
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM joueur WHERE id = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
