@@ -1,28 +1,7 @@
-/*
-Copyright 2000- Francois de Bertrand de Beuvron
-
-This file is part of CoursBeuvron.
-
-CoursBeuvron is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-CoursBeuvron is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
- */
 package fr.insa.toto.webui;
 
-/**
- *
- * @author maxen
- */
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
@@ -36,12 +15,10 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import fr.insa.beuvron.utils.database.ConnectionPool;
 import fr.insa.toto.model.Matchs;
+import fr.insa.toto.model.Tournoi;
 import fr.insa.toto.webui.security.SessionInfo;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -50,30 +27,60 @@ import java.util.List;
 public class VueListeMatchs extends VerticalLayout {
 
     private Grid<MatchInfo> grid;
+    private ComboBox<Tournoi> comboTournois = new ComboBox<>("Tournoi");
+    private ComboBox<Integer> comboRondes = new ComboBox<>("Ronde");
+    private ComboBox<String> comboStatut = new ComboBox<>("Statut");
 
     public VueListeMatchs() {
-        add(new H2("Matchs en cours"));
+        add(new H2("Matchs et Résultats"));
 
+        // --- CONFIGURATION DES FILTRES ---
+        HorizontalLayout filtres = new HorizontalLayout();
+        filtres.setAlignItems(Alignment.BASELINE);
+
+        comboTournois.setPlaceholder("Tous");
+        comboTournois.setItemLabelGenerator(Tournoi::getNom);
+        comboTournois.setClearButtonVisible(true);
+        chargerTournois();
+
+        comboRondes.setPlaceholder("Toutes");
+        comboRondes.setEnabled(false);
+        comboRondes.setClearButtonVisible(true);
+
+        // Nouveau filtre Statut
+        comboStatut.setPlaceholder("Tous");
+        comboStatut.setItems("EN_COURS", "CLOSE");
+        comboStatut.setClearButtonVisible(true);
+
+        // Écouteurs pour rafraîchir la grille
+        comboTournois.addValueChangeListener(e -> {
+            if (e.getValue() != null) {
+                chargerNumerosRondes(e.getValue().getId());
+                comboRondes.setEnabled(true);
+            } else {
+                comboRondes.clear();
+                comboRondes.setEnabled(false);
+            }
+            rafraichirGrille();
+        });
+        comboRondes.addValueChangeListener(e -> rafraichirGrille());
+        comboStatut.addValueChangeListener(e -> rafraichirGrille());
+
+        filtres.add(comboTournois, comboRondes, comboStatut);
+        add(filtres);
+
+        // --- GRILLE ---
         grid = new Grid<>(MatchInfo.class, false);
-        
-        // Colonne Terrain
-        grid.addColumn(m -> "Terrain " + m.idTerrain).setHeader("Lieu").setSortable(true).setWidth("100px");
-
-        // Colonne Affichage du match (Equipe A vs Equipe B)
+        grid.addColumn(m -> m.nomTournoi).setHeader("Tournoi").setAutoWidth(true);
+        grid.addColumn(m -> "Ronde " + m.numRonde).setHeader("Ronde").setWidth("100px");
+        grid.addColumn(m -> "Terrain " + m.idTerrain).setHeader("Lieu").setWidth("100px");
         grid.addColumn(MatchInfo::getDescriptionDuel).setHeader("Rencontre").setAutoWidth(true);
-
-        // Colonne Score
         grid.addColumn(MatchInfo::getScoreText).setHeader("Score").setWidth("150px");
-
-        // Colonne Statut
         grid.addColumn(MatchInfo::getStatut).setHeader("Statut").setWidth("120px");
 
-        // Colonne Action (Visible seulement pour les ADMINS)
         if (SessionInfo.isCurUserAdmin()) {
             grid.addComponentColumn(match -> {
-                if ("CLOSE".equals(match.statut)) {
-                    return new Span("Terminé");
-                }
+                if ("CLOSE".equals(match.statut)) return new Span("Terminé");
                 Button btnScore = new Button("Saisir Score", VaadinIcon.EDIT.create());
                 btnScore.addClickListener(e -> ouvrirDialogScore(match));
                 return btnScore;
@@ -84,156 +91,128 @@ public class VueListeMatchs extends VerticalLayout {
         rafraichirGrille();
     }
 
-    private void rafraichirGrille() {
+    private void chargerTournois() {
         try (Connection con = ConnectionPool.getConnection()) {
-            List<MatchInfo> matchs = recupererMatchsComplets(con);
-            grid.setItems(matchs);
-        } catch (SQLException e) {
-            Notification.show("Erreur de chargement : " + e.getMessage());
-        }
+            comboTournois.setItems(Tournoi.findAll(con));
+        } catch (SQLException e) { Notification.show("Erreur tournois"); }
     }
 
-    // --- LOGIQUE DE SAISIE DE SCORE (ADMIN) ---
+    private void chargerNumerosRondes(int idTournoi) {
+        List<Integer> numeros = new ArrayList<>();
+        try (Connection con = ConnectionPool.getConnection()) {
+            String sql = "SELECT numero FROM ronde WHERE idTournoi = ? ORDER BY numero";
+            PreparedStatement ps = con.prepareStatement(sql);
+            ps.setInt(1, idTournoi);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) numeros.add(rs.getInt("numero"));
+            comboRondes.setItems(numeros);
+        } catch (SQLException e) { Notification.show("Erreur rondes"); }
+    }
+
+    private void rafraichirGrille() {
+        try (Connection con = ConnectionPool.getConnection()) {
+            grid.setItems(recupererMatchsFiltres(con));
+        } catch (SQLException e) { Notification.show("Erreur : " + e.getMessage()); }
+    }
+
+    private List<MatchInfo> recupererMatchsFiltres(Connection con) throws SQLException {
+        List<MatchInfo> res = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+            "SELECT m.id, m.idTerrain, m.statut, r.numero as numR, t.nom as nomT " +
+            "FROM matchs m JOIN ronde r ON m.idRonde = r.id JOIN tournoi t ON r.idTournoi = t.id " +
+            "WHERE 1=1 ");
+
+        if (comboTournois.getValue() != null) sql.append(" AND t.id = ").append(comboTournois.getValue().getId());
+        if (comboRondes.getValue() != null) sql.append(" AND r.numero = ").append(comboRondes.getValue());
+        if (comboStatut.getValue() != null) sql.append(" AND m.statut = '").append(comboStatut.getValue()).append("'");
+        
+        sql.append(" ORDER BY t.id DESC, r.numero DESC");
+
+        try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sql.toString())) {
+            while (rs.next()) {
+                MatchInfo info = new MatchInfo();
+                info.idMatch = rs.getInt("id");
+                info.idTerrain = rs.getInt("idTerrain");
+                info.statut = rs.getString("statut");
+                info.numRonde = rs.getInt("numR");
+                info.nomTournoi = rs.getString("nomT");
+
+                try (PreparedStatement pstEq = con.prepareStatement(
+                        "SELECT e.id, e.score, GROUP_CONCAT(j.surnom SEPARATOR ', ') as joueurs " +
+                        "FROM equipe e JOIN composition c ON c.idEquipe = e.id JOIN joueur j ON j.id = c.idJoueur " +
+                        "WHERE e.idMatch = ? GROUP BY e.id ORDER BY e.num")) {
+                    pstEq.setInt(1, info.idMatch);
+                    try (ResultSet rsEq = pstEq.executeQuery()) {
+                        if (rsEq.next()) {
+                            info.idEquipe1 = rsEq.getInt("id");
+                            info.nomEquipe1 = rsEq.getString("joueurs");
+                            info.score1 = rsEq.getObject("score") != null ? rsEq.getInt("score") : null;
+                        }
+                        if (rsEq.next()) {
+                            info.idEquipe2 = rsEq.getInt("id");
+                            info.nomEquipe2 = rsEq.getString("joueurs");
+                            info.score2 = rsEq.getObject("score") != null ? rsEq.getInt("score") : null;
+                        }
+                    }
+                }
+                res.add(info);
+            }
+        }
+        return res;
+    }
+
     private void ouvrirDialogScore(MatchInfo match) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Résultat du match (Terrain " + match.idTerrain + ")");
-        IntegerField score1 = new IntegerField("Score " + match.nomEquipe1);
-        IntegerField score2 = new IntegerField("Score " + match.nomEquipe2);
-
-        Button save = new Button("Valider et Clore", e -> {
-            if (score1.getValue() != null && score2.getValue() != null) {
-                sauvegarderScore(match, score1.getValue(), score2.getValue());
+        dialog.setHeaderTitle("Saisie Score");
+        IntegerField s1 = new IntegerField("Score " + match.nomEquipe1);
+        IntegerField s2 = new IntegerField("Score " + match.nomEquipe2);
+        Button save = new Button("Enregistrer", e -> {
+            if (s1.getValue() != null && s2.getValue() != null) {
+                sauvegarderScore(match, s1.getValue(), s2.getValue());
                 dialog.close();
-                rafraichirGrille();
             }
         });
-
-        VerticalLayout layout = new VerticalLayout(score1, score2, save);
-        dialog.add(layout);
+        dialog.add(new VerticalLayout(s1, s2, save));
         dialog.open();
     }
 
-private void sauvegarderScore(MatchInfo match, int s1, int s2) {
+    private void sauvegarderScore(MatchInfo match, int s1, int s2) {
         try (Connection con = ConnectionPool.getConnection()) {
             con.setAutoCommit(false);
             try {
                 updateEquipeScore(con, match.idEquipe1, s1);
                 updateEquipeScore(con, match.idEquipe2, s2);
-
                 ajouterPointsAuxJoueurs(con, match.idEquipe1, s1);
                 ajouterPointsAuxJoueurs(con, match.idEquipe2, s2);
-
-
                 try (PreparedStatement pst = con.prepareStatement("UPDATE matchs SET statut = 'CLOSE' WHERE id = ?")) {
-                    pst.setInt(1, match.idMatch);
-                    pst.executeUpdate();
+                    pst.setInt(1, match.idMatch); pst.executeUpdate();
                 }
-                
                 con.commit();
-                Notification.show("Match terminé et scores mis à jour !");
+                Notification.show("Match terminé");
                 rafraichirGrille();
-                
-            } catch (Exception ex) {
-                con.rollback();
-                throw ex;
-            } finally {
-                con.setAutoCommit(true);
-            }
-        } catch (SQLException ex) {
-            Notification.show("Erreur sauvegarde : " + ex.getMessage());
-            ex.printStackTrace();
-        }
+            } catch (Exception ex) { con.rollback(); throw ex; }
+        } catch (SQLException ex) { Notification.show("Erreur : " + ex.getMessage()); }
     }
 
-    private void updateEquipeScore(Connection con, int idEquipe, int score) throws SQLException {
+    private void updateEquipeScore(Connection con, int idEq, int sc) throws SQLException {
         try (PreparedStatement pst = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?")) {
-            pst.setInt(1, score);
-            pst.setInt(2, idEquipe);
-            pst.executeUpdate();
+            pst.setInt(1, sc); pst.setInt(2, idEq); pst.executeUpdate();
         }
     }
 
-    private List<MatchInfo> recupererMatchsComplets(Connection con) throws SQLException {
-        List<MatchInfo> res = new ArrayList<>();
-        
-        List<Matchs> listeMatchs = Matchs.findAll(con);
-        for (Matchs m : listeMatchs) {
-            MatchInfo info = new MatchInfo();
-            info.idMatch = m.getId();
-            info.idTerrain = m.getIdTerrain();
-            info.statut = m.getStatut();
-            
-            try (PreparedStatement pst = con.prepareStatement(
-                    "SELECT e.id, e.score, e.num, " +
-                    "GROUP_CONCAT(j.surnom SEPARATOR ', ') as joueurs " +
-                    "FROM equipe e " +
-                    "JOIN composition c ON c.idEquipe = e.id " +
-                    "JOIN joueur j ON j.id = c.idJoueur " +
-                    "WHERE e.idMatch = ? " +
-                    "GROUP BY e.id ORDER BY e.num")) {
-                
-                pst.setInt(1, m.getId());
-                try (ResultSet rs = pst.executeQuery()) {
-                    if (rs.next()) { // Equipe 1
-                        info.idEquipe1 = rs.getInt("id");
-                        info.nomEquipe1 = rs.getString("joueurs");
-                        info.score1 = rs.getInt("score");
-                        if (rs.wasNull()) info.score1 = null;
-                    }
-                    if (rs.next()) { // Equipe 2
-                        info.idEquipe2 = rs.getInt("id");
-                        info.nomEquipe2 = rs.getString("joueurs");
-                        info.score2 = rs.getInt("score");
-                        if (rs.wasNull()) info.score2 = null;
-                    }
-                }
-            }
-            res.add(info);
+    private void ajouterPointsAuxJoueurs(Connection con, int idEq, int pts) throws SQLException {
+        try (PreparedStatement pst = con.prepareStatement(
+                "UPDATE joueur SET scoreTotal = scoreTotal + ? WHERE id IN (SELECT idJoueur FROM composition WHERE idEquipe = ?)")) {
+            pst.setInt(1, pts); pst.setInt(2, idEq); pst.executeUpdate();
         }
-        return res;
     }
 
     public static class MatchInfo {
-        public int idMatch;
-        public int idTerrain;
-        public String statut;
-        
-        public int idEquipe1;
-        public String nomEquipe1 = "Equipe 1";
-        public Integer score1;
-        
-        public int idEquipe2;
-        public String nomEquipe2 = "Equipe 2";
-        public Integer score2;
-
-        public String getDescriptionDuel() {
-            return nomEquipe1 + "  VS  " + nomEquipe2;
-        }
-
-        public String getScoreText() {
-            if (score1 == null || score2 == null) return "-";
-            return score1 + " - " + score2;
-        }
-        
+        public int idMatch, idTerrain, numRonde, idEquipe1, idEquipe2;
+        public String statut, nomTournoi, nomEquipe1, nomEquipe2;
+        public Integer score1, score2;
+        public String getDescriptionDuel() { return nomEquipe1 + "  VS  " + nomEquipe2; }
+        public String getScoreText() { return (score1 == null) ? "-" : score1 + " - " + score2; }
         public String getStatut() { return statut; }
-    }
-    private void ajouterPointsAuxJoueurs(Connection con, int idEquipe, int pointsGagnes) throws SQLException {
-        String sql = "SELECT idJoueur FROM composition WHERE idEquipe = ?";
-        
-        try (PreparedStatement pstSelect = con.prepareStatement(sql)) {
-            pstSelect.setInt(1, idEquipe);
-            try (ResultSet rs = pstSelect.executeQuery()) {
-                while (rs.next()) {
-                    int idJoueur = rs.getInt("idJoueur");
-                    
-                    try (PreparedStatement pstUpdate = con.prepareStatement(
-                            "UPDATE joueur SET scoreTotal = scoreTotal + ? WHERE id = ?")) {
-                        pstUpdate.setInt(1, pointsGagnes);
-                        pstUpdate.setInt(2, idJoueur);
-                        pstUpdate.executeUpdate();
-                    }
-                }
-            }
-        }
     }
 }
