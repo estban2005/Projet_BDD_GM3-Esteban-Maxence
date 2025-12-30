@@ -170,12 +170,16 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         dialog.open();
     }
 
+    // Dans VueDetailTournoi.java, assurez-vous que la méthode d'appel est correcte :
     private void lancerGeneration(int nbEquipes, int duree) {
         try (Connection con = ConnectionPool.getConnection()) {
+            // L'appel au service va maintenant créer TOUS les matchs possibles
             ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipes, duree);
-            Notification.show("Ronde générée !").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            afficherVueRondes();
-        } catch (Exception ex) { Notification.show("Erreur : " + ex.getMessage()); }
+            Notification.show("Ronde générée avec succès !").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            afficherVueRondes(); // Rafraîchit l'affichage
+        } catch (Exception ex) {
+            Notification.show("Erreur de génération : " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
     }
 
     // Le reste des méthodes (afficherVueMatchs, recupererRondes, etc.) 
