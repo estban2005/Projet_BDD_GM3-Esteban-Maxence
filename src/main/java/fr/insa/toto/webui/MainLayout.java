@@ -2,27 +2,21 @@ package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
+import com.vaadin.flow.component.button.Button; // Nouvel import
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.icon.VaadinIcon; // Nouvel import pour l'icône
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.page.Push; // L'import nécessaire pour le Push
 import fr.insa.toto.model.Utilisateur;
 import fr.insa.toto.webui.security.SessionInfo;
-
-/**
- * @author maxen
- */
 
 public class MainLayout extends AppLayout {
 
     public MainLayout() {
-        // 1. Menu latéral (Drawer)
         this.addToDrawer(new MainMenu());
 
-        // 2. Bouton Menu (Toggle)
         DrawerToggle toggle = new DrawerToggle();
 
-        // 3. Récupération du surnom depuis la session (BDD)
         String surnom = SessionInfo.getUtilisateurConnecte()
                         .map(Utilisateur::getSurnom) 
                         .orElse("Invité");
@@ -32,18 +26,26 @@ public class MainLayout extends AppLayout {
         bienvenue.getStyle().set("margin", "0");
         bienvenue.getStyle().set("color", "black"); 
 
-        // 4. Navbar (Bandeau du haut)
-        HorizontalLayout navbarContainer = new HorizontalLayout(toggle, bienvenue);
+        // --- AJOUT DU BOUTON AIDE ---
+        Button aideBtn = new Button("Aide", VaadinIcon.QUESTION_CIRCLE.create());
+        aideBtn.addClickListener(e -> {
+            AideDialog dialog = new AideDialog();
+            dialog.open();
+        });
+        // Style pour que le bouton soit à droite
+        aideBtn.getStyle().set("margin-left", "auto");
+        // ----------------------------
+
+        // Ajout du bouton aideBtn dans le constructeur HorizontalLayout
+        HorizontalLayout navbarContainer = new HorizontalLayout(toggle, bienvenue, aideBtn);
         navbarContainer.setWidthFull();
         navbarContainer.setAlignItems(FlexComponent.Alignment.CENTER);
         
-        // Couleur Beige/Marron clair pour le haut
         navbarContainer.getStyle().set("background-color", "#F5F5DC");
         navbarContainer.getStyle().set("padding", "0 1em");
 
         this.addToNavbar(navbarContainer);
 
-        // 5. Couleur du menu latéral (Drawer) via JavaScript (Shadow DOM)
         this.getElement().executeJs(
             "const drawer = this.shadowRoot.querySelector('[part=\"drawer\"]');" +
             "if (drawer) {" +
