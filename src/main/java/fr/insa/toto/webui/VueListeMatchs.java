@@ -1,11 +1,11 @@
 package fr.insa.toto.webui;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -16,7 +16,6 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.QueryParameters;
 import fr.insa.beuvron.utils.database.ConnectionPool;
 import fr.insa.toto.model.Tournoi;
 import fr.insa.toto.webui.security.SessionInfo;
@@ -24,7 +23,6 @@ import fr.insa.toto.webui.security.SessionInfo;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Route(value = "matchs", layout = MainLayout.class)
 @PageTitle("Liste des Matchs")
@@ -38,6 +36,7 @@ public class VueListeMatchs extends VerticalLayout {
     public VueListeMatchs() {
         add(new H2("Matchs et Résultats"));
 
+        // --- FILTRES ---
         HorizontalLayout filtres = new HorizontalLayout();
         filtres.setAlignItems(Alignment.BASELINE);
 
@@ -70,53 +69,66 @@ public class VueListeMatchs extends VerticalLayout {
         filtres.add(comboTournois, comboRondes, comboStatut);
         add(filtres);
 
+        // --- GRILLE ---
         grid = new Grid<>(MatchSimpleInfo.class, false);
         grid.addColumn(m -> m.nomTournoi).setHeader("Tournoi").setAutoWidth(true);
         grid.addColumn(m -> "Ronde " + m.numRonde).setHeader("Ronde").setWidth("100px");
         grid.addColumn(m -> "Terrain " + m.idTerrain).setHeader("Terrain").setWidth("100px");
 
+        // MODIFICATION : Équipes sur plusieurs lignes, Infos équipe sur une seule ligne avec liens joueurs
         grid.addColumn(new ComponentRenderer<>(match -> {
-            VerticalLayout layoutMatch = new VerticalLayout();
-            layoutMatch.setPadding(false);
-            layoutMatch.setSpacing(false);
+            VerticalLayout containerMatch = new VerticalLayout();
+            containerMatch.setPadding(false);
+            containerMatch.setSpacing(false);
+
             try (Connection con = ConnectionPool.getConnection()) {
-                String sql = "SELECT e.num, e.score, j.surnom " +
+                // On récupère les IDs des joueurs pour permettre la navigation
+                String sql = "SELECT e.num, e.score, GROUP_CONCAT(j.id SEPARATOR ',') as ids, GROUP_CONCAT(j.surnom SEPARATOR ',') as surnoms " +
                              "FROM equipe e " +
                              "JOIN composition c ON c.idEquipe = e.id " +
                              "JOIN joueur j ON j.id = c.idJoueur " +
                              "WHERE e.idMatch = ? " +
-                             "ORDER BY e.num, j.surnom";
+                             "GROUP BY e.id ORDER BY e.num";
+                             
                 try (PreparedStatement pst = con.prepareStatement(sql)) {
                     pst.setInt(1, match.idMatch);
                     try (ResultSet rs = pst.executeQuery()) {
-                        int currentEquipe = -1;
-                        HorizontalLayout currentLine = null;
                         while (rs.next()) {
-                            int numEq = rs.getInt("num");
-                            if (numEq != currentEquipe) {
-                                currentEquipe = numEq;
-                                String scoreStr = rs.getObject("score") != null ? rs.getString("score") : "?";
-                                currentLine = new HorizontalLayout();
-                                currentLine.setSpacing(true);
-                                currentLine.add(new Span("Équipe " + numEq + " ["));
-                                layoutMatch.add(currentLine);
-                                // Fin de ligne pour le score
-                                Span scoreLabel = new Span("] - Score: " + scoreStr);
-                                layoutMatch.add(scoreLabel); 
-                            }
+                            HorizontalLayout ligneEquipe = new HorizontalLayout();
+                            ligneEquipe.setSpacing(true);
+                            ligneEquipe.setAlignItems(Alignment.CENTER);
+
+                            int numEquipe = rs.getInt("num");
+                            String scoreStr = rs.getObject("score") != null ? rs.getString("score") : "0";
                             
-                            String surnom = rs.getString("surnom");
-                            Anchor link = new Anchor("joueurs?surnom=" + surnom, surnom);
-                            link.getStyle().set("color", "blue").set("text-decoration", "underline");
-                            currentLine.add(link);
+                            ligneEquipe.add(new Span("Équipe " + numEquipe + " ("));
+
+                            // Gestion des liens pour chaque joueur
+                            String[] ids = rs.getString("ids").split(",");
+                            String[] surnoms = rs.getString("surnoms").split(",");
+
+                            for (int i = 0; i < surnoms.length; i++) {
+                                Button linkJoueur = new Button(surnoms[i]);
+                                linkJoueur.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+                                // On redirige vers la vue joueurs (ajustez la route si nécessaire)
+                                linkJoueur.addClickListener(e -> UI.getCurrent().navigate("joueurs")); 
+                                ligneEquipe.add(linkJoueur);
+
+                                if (i < surnoms.length - 1) {
+                                    ligneEquipe.add(new Span(", "));
+                                }
+                            }
+
+                            ligneEquipe.add(new Span(") - Score : " + scoreStr));
+                            containerMatch.add(ligneEquipe);
                         }
                     }
                 }
             } catch (Exception e) {
-                layoutMatch.add(new Span("Erreur de chargement"));
+                containerMatch.add(new Span("Erreur de chargement"));
             }
-            return layoutMatch;
-        })).setHeader("Équipes & Scores").setAutoWidth(true);
+            return containerMatch;
+        })).setHeader("Équipes et Résultats").setAutoWidth(true);
 
         grid.addColumn(m -> m.statut).setHeader("Statut").setWidth("120px");
 
