@@ -130,6 +130,27 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         } catch (Exception e) { Notification.show("Erreur : " + e.getMessage()); }
     }
 
+    /**
+     * Récupère les noms des joueurs d'une équipe donnée pour l'affichage.
+     */
+    private String recupererNomsJoueurs(int idEquipe) {
+        List<String> noms = new ArrayList<>();
+        try (Connection con = ConnectionPool.getConnection()) {
+            String sql = "SELECT j.nom FROM joueur j " +
+                         "JOIN composition c ON j.id = c.idJoueur " +
+                         "WHERE c.idEquipe = ?";
+            PreparedStatement ps = con.prepareStatement(sql);
+            ps.setInt(1, idEquipe);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                noms.add(rs.getString("nom"));
+            }
+        } catch (SQLException e) {
+            return "Erreur chargement joueurs";
+        }
+        return noms.isEmpty() ? "Aucun joueur" : String.join(", ", noms);
+    }
+
     private void chargerDonneesMatchDynamique() {
         layoutEquipes.removeAll();
         try (Connection con = ConnectionPool.getConnection()) {
@@ -150,7 +171,11 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
                 int idEq = rsE.getInt("id");
                 int numEq = rsE.getInt("num");
                 int scoreInit = rsE.getInt("score");
-                layoutEquipes.add(creerZoneScoreDynamique(idEq, numEq, scoreInit));
+                
+                // Récupération des noms des joueurs
+                String joueurs = recupererNomsJoueurs(idEq);
+                
+                layoutEquipes.add(creerZoneScoreDynamique(idEq, numEq, scoreInit, joueurs));
             }
         } catch (Exception e) { Notification.show("Erreur données match"); }
     }
@@ -172,8 +197,21 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         zoneArbitrage.add(labelChrono, btnStart, layoutEquipes, btnEnd);
     }
 
-    private VerticalLayout creerZoneScoreDynamique(int idEquipe, int num, int scoreActuel) {
+    private VerticalLayout creerZoneScoreDynamique(int idEquipe, int num, int scoreActuel, String nomsJoueurs) {
         H2 nomLabel = new H2("Équipe " + num);
+        
+        // Composant pour afficher les noms des joueurs
+        Span joueursLabel = new Span(nomsJoueurs);
+        joueursLabel.getStyle()
+            .set("font-style", "italic")
+            .set("color", "#555555")
+            .set("text-align", "center")
+            .set("font-size", "0.9em")
+            .set("margin-bottom", "10px");
+        
+        // Permet le retour à la ligne si la liste de noms est longue
+        joueursLabel.setWidth("180px");
+
         H1 scoreLabel = new H1(String.valueOf(scoreActuel));
         
         // Stockage local du score pour cette instance de composant
@@ -192,10 +230,11 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             }
         });
 
-        VerticalLayout v = new VerticalLayout(nomLabel, scoreLabel, bPlus, bMoins);
+        // Ajout du label des joueurs entre le nom de l'équipe et le score
+        VerticalLayout v = new VerticalLayout(nomLabel, joueursLabel, scoreLabel, bPlus, bMoins);
         v.setAlignItems(Alignment.CENTER);
         v.getStyle().set("border", "1px solid gray").set("border-radius", "10px").set("padding", "10px");
-        v.setWidth("200px");
+        v.setWidth("220px");
         return v;
     }
 
