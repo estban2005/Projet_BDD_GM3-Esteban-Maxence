@@ -37,23 +37,35 @@ public class VueJoueurs extends VerticalLayout {
     private TextField prenom = new TextField("Prénom");
     private TextField surnom = new TextField("Surnom");
     private TextField sexe = new TextField("Sexe (M/F)");
-    private DatePicker dateNaissance = new DatePicker("Date de naissance");
 
     public VueJoueurs() {
         add(new H2("Liste des Joueurs"));
 
+        HorizontalLayout toolbar = new HorizontalLayout();
         filtreSurnom.setPlaceholder("Tapez un surnom...");
         filtreSurnom.setClearButtonVisible(true);
         filtreSurnom.setValueChangeMode(ValueChangeMode.EAGER);
         filtreSurnom.addValueChangeListener(e -> rafraichirGrille());
-        add(filtreSurnom);
+        
+        toolbar.add(filtreSurnom);
+
+        // Correction : Utilisation du constructeur existant avec des valeurs par défaut
+        if (SessionInfo.isCurUserAdmin()) {
+            Button addBtn = new Button("Nouveau Joueur", VaadinIcon.PLUS.create(), e -> {
+                // On utilise le constructeur : Joueur(Integer id, String nom, String prenom, String surnom, String sexe, java.sql.Date date, int score)
+                Joueur nouveauJoueur = new Joueur(null, "", "", "", "", null, 0); 
+                ouvrirDialogEdition(nouveauJoueur);
+            });
+            addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            toolbar.add(addBtn);
+        }
+        add(toolbar);
 
         grid = new Grid<>(Joueur.class, false);
         grid.addColumn(Joueur::getId).setHeader("ID").setWidth("60px").setFlexGrow(0);
         grid.addColumn(Joueur::getSurnom).setHeader("Surnom").setSortable(true);
         grid.addColumn(Joueur::getNom).setHeader("Nom");
         grid.addColumn(Joueur::getPrenom).setHeader("Prénom");
-        grid.addColumn(Joueur::getDateNaissance).setHeader("Date Naissance");
         grid.addColumn(Joueur::getScoreTotal).setHeader("Score Total");
 
         grid.addComponentColumn(joueur -> {
@@ -73,6 +85,21 @@ public class VueJoueurs extends VerticalLayout {
 
         add(grid);
         rafraichirGrille();
+    }
+
+    private void rafraichirGrille() {
+        try (Connection con = ConnectionPool.getConnection()) {
+            List<Joueur> joueurs = Joueur.findAll(con);
+            String search = filtreSurnom.getValue();
+            if (search != null && !search.isEmpty()) {
+                joueurs = joueurs.stream()
+                        .filter(j -> j.getSurnom().toLowerCase().contains(search.toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+            grid.setItems(joueurs);
+        } catch (SQLException e) {
+            Notification.show("Erreur");
+        }
     }
 
     private void ouvrirDialogResume(Joueur joueur) {
@@ -108,18 +135,8 @@ public class VueJoueurs extends VerticalLayout {
         dialog.open();
     }
 
-    private void rafraichirGrille() {
-        try (Connection con = ConnectionPool.getConnection()) {
-            List<Joueur> joueurs = Joueur.findAll(con);
-            String search = filtreSurnom.getValue();
-            if (search != null && !search.isEmpty()) {
-                joueurs = joueurs.stream().filter(j -> j.getSurnom().toLowerCase().contains(search.toLowerCase())).collect(Collectors.toList());
-            }
-            grid.setItems(joueurs);
-        } catch (SQLException e) { Notification.show("Erreur"); }
-    }
-
-    private void ouvrirDialogEdition(Joueur joueur) {Dialog dialog = new Dialog();
+    private void ouvrirDialogEdition(Joueur joueur) {
+        Dialog dialog = new Dialog();
         dialog.setHeaderTitle(joueur.getId() == null ? "Nouveau Joueur" : "Modifier Joueur");
 
         nom.setValue(joueur.getNom() != null ? joueur.getNom() : "");
@@ -134,7 +151,6 @@ public class VueJoueurs extends VerticalLayout {
                 Notification.show("Le surnom est obligatoire");
                 return;
             }
-            
             joueur.setNom(nom.getValue());
             joueur.setPrenom(prenom.getValue());
             joueur.setSurnom(surnom.getValue());
@@ -143,14 +159,45 @@ public class VueJoueurs extends VerticalLayout {
             sauvegarderJoueur(joueur);
             dialog.close();
         });
-
-        Button cancelButton = new Button("Annuler", e -> dialog.close());
+        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         dialog.add(formLayout);
-        dialog.getFooter().add(cancelButton, saveButton);
-        dialog.open();  }
-    private void sauvegarderJoueur(Joueur joueur) {  }
-    private void supprimerJoueur(Joueur joueur) {try (Connection con = ConnectionPool.getConnection()) {
+        dialog.getFooter().add(new Button("Annuler", e -> dialog.close()), saveButton);
+        dialog.open();
+    }
+
+    private void sauvegarderJoueur(Joueur joueur) {
+        try (Connection con = ConnectionPool.getConnection()) {
+            if (joueur.getId() == null) {
+                String sql = "INSERT INTO joueur (nom, prenom, surnom, sexe) VALUES (?,?,?,?)";
+                try (PreparedStatement pst = con.prepareStatement(sql)) {
+                    pst.setString(1, joueur.getNom());
+                    pst.setString(2, joueur.getPrenom());
+                    pst.setString(3, joueur.getSurnom());
+                    pst.setString(4, joueur.getSexe());
+                    pst.executeUpdate();
+                }
+            } else {
+                String sql = "UPDATE joueur SET nom=?, prenom=?, surnom=?, sexe=? WHERE id=?";
+                try (PreparedStatement pst = con.prepareStatement(sql)) {
+                    pst.setString(1, joueur.getNom());
+                    pst.setString(2, joueur.getPrenom());
+                    pst.setString(3, joueur.getSurnom());
+                    pst.setString(4, joueur.getSexe());
+                    pst.setInt(5, joueur.getId());
+                    pst.executeUpdate();
+                }
+            }
+            Notification.show("Joueur enregistré").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            rafraichirGrille();
+        } catch (SQLException e) {
+            Notification.show("Erreur technique lors de la sauvegarde");
+        }
+    }
+
+    private void supprimerJoueur(Joueur joueur) {
+        try (Connection con = ConnectionPool.getConnection()) {
+            // Suppression des dépendances puis du joueur
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM composition WHERE idJoueur = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
@@ -162,10 +209,9 @@ public class VueJoueurs extends VerticalLayout {
             Notification.show("Joueur supprimé").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             rafraichirGrille();
         } catch (SQLException e) {
-            Notification.show("Impossible de supprimer (Joueur engagé dans un match ?)");
+            Notification.show("Impossible de supprimer ce joueur.");
         }
-  }
-    private void updateJoueurInDB(Connection con, Joueur j) throws SQLException {  }
+    }
 
     private static class LigneResume {
         String nomTournoi; int numRonde; int idMatch; int score; String statut;
