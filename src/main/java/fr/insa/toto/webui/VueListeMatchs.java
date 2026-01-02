@@ -98,6 +98,7 @@ public class VueListeMatchs extends VerticalLayout {
                                 String scoreStr = rs.getObject("score") != null ? rs.getString("score") : "?";
                                 currentLine = new HorizontalLayout();
                                 currentLine.setSpacing(true);
+                                
                                 currentLine.add(new Span("Équipe " + numEq + " ["));
                                 layoutMatch.add(currentLine);
                                 // Fin de ligne pour le score
