@@ -2,15 +2,12 @@ package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.page.AppShellConfigurator;
 import com.vaadin.flow.theme.Theme;
-import fr.insa.beuvron.utils.database.ConnectionPool; 
-import fr.insa.toto.model.BdDTest;                 
-import fr.insa.toto.model.GestionBDD;             
+            
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 
-import java.sql.Connection;
-import java.sql.SQLException;
+
 
 @SpringBootApplication
 @Theme("default")
