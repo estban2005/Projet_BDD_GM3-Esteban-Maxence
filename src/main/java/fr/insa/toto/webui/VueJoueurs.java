@@ -2,7 +2,7 @@ package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.datepicker.DatePicker; 
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -22,6 +22,7 @@ import fr.insa.toto.model.Joueur;
 import fr.insa.toto.webui.security.SessionInfo;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,6 +38,7 @@ public class VueJoueurs extends VerticalLayout {
     private TextField prenom = new TextField("Prénom");
     private TextField surnom = new TextField("Surnom");
     private TextField sexe = new TextField("Sexe (M/F)");
+    private DatePicker dateNaissance = new DatePicker("Date de Naissance"); // Nouveau champ DatePicker
 
     public VueJoueurs() {
         add(new H2("Liste des Joueurs"));
@@ -54,6 +56,8 @@ public class VueJoueurs extends VerticalLayout {
         grid.addColumn(Joueur::getSurnom).setHeader("Surnom").setSortable(true);
         grid.addColumn(Joueur::getNom).setHeader("Nom");
         grid.addColumn(Joueur::getPrenom).setHeader("Prénom");
+        
+        grid.addColumn(Joueur::getDateNaissance).setHeader("Date Naissance");
         grid.addColumn(Joueur::getScoreTotal).setHeader("Score Total");
 
         grid.addComponentColumn(joueur -> {
@@ -75,7 +79,6 @@ public class VueJoueurs extends VerticalLayout {
 
         if (SessionInfo.isCurUserAdmin()) {
             Button addBtn = new Button("Nouveau Joueur", VaadinIcon.PLUS.create(), e -> {
-                // Utilisation du constructeur à 7 paramètres identifié dans Joueur.java
                 Joueur nouveauJoueur = new Joueur(null, "", "", "", "", null, 0); 
                 ouvrirDialogEdition(nouveauJoueur);
             });
@@ -142,8 +145,16 @@ public class VueJoueurs extends VerticalLayout {
         prenom.setValue(joueur.getPrenom() != null ? joueur.getPrenom() : "");
         surnom.setValue(joueur.getSurnom() != null ? joueur.getSurnom() : "");
         sexe.setValue(joueur.getSexe() != null ? joueur.getSexe() : "");
+        
+        // Initialisation de la date dans le formulaire
+        if (joueur.getDateNaissance() != null) {
+            dateNaissance.setValue(joueur.getDateNaissance().toLocalDate());
+        } else {
+            dateNaissance.clear();
+        }
 
-        FormLayout formLayout = new FormLayout(surnom, nom, prenom, sexe);
+        
+        FormLayout formLayout = new FormLayout(surnom, nom, prenom, sexe, dateNaissance);
         
         Button saveButton = new Button("Enregistrer", e -> {
             if (surnom.getValue().trim().isEmpty()) {
@@ -155,6 +166,10 @@ public class VueJoueurs extends VerticalLayout {
             joueur.setPrenom(prenom.getValue());
             joueur.setSurnom(surnom.getValue());
             joueur.setSexe(sexe.getValue());
+            
+            // Mise à jour de l'objet Joueur avec la date saisie
+            LocalDate localDate = dateNaissance.getValue();
+            joueur.setDateNaissance(localDate != null ? java.sql.Date.valueOf(localDate) : null);
 
             if (sauvegarderJoueur(joueur)) {
                 dialog.close();
@@ -167,9 +182,6 @@ public class VueJoueurs extends VerticalLayout {
         dialog.open();
     }
 
-    /**
-     * Tente de sauvegarder le joueur. Retourne true si succès, false si erreur (ex: surnom doublon).
-     */
     private boolean sauvegarderJoueur(Joueur joueur) {
         try (Connection con = ConnectionPool.getConnection()) {
             // VERIFICATION DU DOUBLON DE SURNOM
@@ -192,24 +204,28 @@ public class VueJoueurs extends VerticalLayout {
                 }
             }
 
-            // INSERTION OU MISE A JOUR
+            // INSERTION OU MISE A JOUR avec prise en compte de la dateNaissance
             if (joueur.getId() == null) {
-                String sql = "INSERT INTO joueur (nom, prenom, surnom, sexe, scoreTotal) VALUES (?,?,?,?,0)";
+                
+                String sql = "INSERT INTO joueur (nom, prenom, surnom, sexe, dateNaissance, scoreTotal) VALUES (?,?,?,?,?,0)";
                 try (PreparedStatement pst = con.prepareStatement(sql)) {
                     pst.setString(1, joueur.getNom());
                     pst.setString(2, joueur.getPrenom());
                     pst.setString(3, joueur.getSurnom());
                     pst.setString(4, joueur.getSexe());
+                    pst.setDate(5, joueur.getDateNaissance());
                     pst.executeUpdate();
                 }
             } else {
-                String sql = "UPDATE joueur SET nom=?, prenom=?, surnom=?, sexe=? WHERE id=?";
+                // Ajout de dateNaissance dans l'UPDATE
+                String sql = "UPDATE joueur SET nom=?, prenom=?, surnom=?, sexe=?, dateNaissance=? WHERE id=?";
                 try (PreparedStatement pst = con.prepareStatement(sql)) {
                     pst.setString(1, joueur.getNom());
                     pst.setString(2, joueur.getPrenom());
                     pst.setString(3, joueur.getSurnom());
                     pst.setString(4, joueur.getSexe());
-                    pst.setInt(5, joueur.getId());
+                    pst.setDate(5, joueur.getDateNaissance());
+                    pst.setInt(6, joueur.getId());
                     pst.executeUpdate();
                 }
             }

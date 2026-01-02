@@ -31,7 +31,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Route(value = "tournoi", layout = MainLayout.class)
 @PageTitle("Détail Tournoi")
@@ -46,7 +45,6 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
     private Tabs tabs;
     private Grid<RondeInfo> gridRondes;
     private Grid<MatchInfo> gridMatchs;
-    private H3 titreRondeEnCours = new H3("");
 
     public VueDetailTournoi() {
         add(titreVue);
