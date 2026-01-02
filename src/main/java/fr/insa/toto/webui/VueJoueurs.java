@@ -41,26 +41,16 @@ public class VueJoueurs extends VerticalLayout {
     public VueJoueurs() {
         add(new H2("Liste des Joueurs"));
 
+        // 1. Barre de recherche seule en haut
         HorizontalLayout toolbar = new HorizontalLayout();
         filtreSurnom.setPlaceholder("Tapez un surnom...");
         filtreSurnom.setClearButtonVisible(true);
         filtreSurnom.setValueChangeMode(ValueChangeMode.EAGER);
         filtreSurnom.addValueChangeListener(e -> rafraichirGrille());
-        
         toolbar.add(filtreSurnom);
-
-        // Correction : Utilisation du constructeur existant avec des valeurs par défaut
-        if (SessionInfo.isCurUserAdmin()) {
-            Button addBtn = new Button("Nouveau Joueur", VaadinIcon.PLUS.create(), e -> {
-                // On utilise le constructeur : Joueur(Integer id, String nom, String prenom, String surnom, String sexe, java.sql.Date date, int score)
-                Joueur nouveauJoueur = new Joueur(null, "", "", "", "", null, 0); 
-                ouvrirDialogEdition(nouveauJoueur);
-            });
-            addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            toolbar.add(addBtn);
-        }
         add(toolbar);
 
+        // 2. Configuration de la Grille (Tableau)
         grid = new Grid<>(Joueur.class, false);
         grid.addColumn(Joueur::getId).setHeader("ID").setWidth("60px").setFlexGrow(0);
         grid.addColumn(Joueur::getSurnom).setHeader("Surnom").setSortable(true);
@@ -83,7 +73,19 @@ public class VueJoueurs extends VerticalLayout {
             return actions;
         }).setHeader("Actions").setAutoWidth(true);
 
-        add(grid);
+        add(grid); // Ajout de la grille au layout
+
+        // 3. Bouton "Nouveau Joueur" placé EN DESSOUS de la grille
+        if (SessionInfo.isCurUserAdmin()) {
+            Button addBtn = new Button("Nouveau Joueur", VaadinIcon.PLUS.create(), e -> {
+                // Utilisation du constructeur existant : Joueur(Integer id, String nom, String prenom, String surnom, String sexe, java.sql.Date date, int score)
+                Joueur nouveauJoueur = new Joueur(null, "", "", "", "", null, 0); 
+                ouvrirDialogEdition(nouveauJoueur);
+            });
+            addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            add(addBtn); // Ajouté après la grille pour être visuellement en dessous
+        }
+
         rafraichirGrille();
     }
 
@@ -98,7 +100,7 @@ public class VueJoueurs extends VerticalLayout {
             }
             grid.setItems(joueurs);
         } catch (SQLException e) {
-            Notification.show("Erreur");
+            Notification.show("Erreur lors du chargement des joueurs");
         }
     }
 
@@ -169,7 +171,9 @@ public class VueJoueurs extends VerticalLayout {
     private void sauvegarderJoueur(Joueur joueur) {
         try (Connection con = ConnectionPool.getConnection()) {
             if (joueur.getId() == null) {
-                String sql = "INSERT INTO joueur (nom, prenom, surnom, sexe) VALUES (?,?,?,?)";
+                // Utilisation de la méthode insertInDB si vous souhaitez centraliser la logique dans le modèle
+                // Sinon, insertion directe :
+                String sql = "INSERT INTO joueur (nom, prenom, surnom, sexe, scoreTotal) VALUES (?,?,?,?,0)";
                 try (PreparedStatement pst = con.prepareStatement(sql)) {
                     pst.setString(1, joueur.getNom());
                     pst.setString(2, joueur.getPrenom());
@@ -191,17 +195,18 @@ public class VueJoueurs extends VerticalLayout {
             Notification.show("Joueur enregistré").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             rafraichirGrille();
         } catch (SQLException e) {
-            Notification.show("Erreur technique lors de la sauvegarde");
+            Notification.show("Erreur technique lors de la sauvegarde : " + e.getMessage());
         }
     }
 
     private void supprimerJoueur(Joueur joueur) {
         try (Connection con = ConnectionPool.getConnection()) {
-            // Suppression des dépendances puis du joueur
+            // Suppression des liens dans composition pour éviter l'erreur de clé étrangère
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM composition WHERE idJoueur = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
             }
+            // Suppression du joueur
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM joueur WHERE id = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
