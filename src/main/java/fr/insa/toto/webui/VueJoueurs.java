@@ -10,6 +10,7 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -118,9 +119,52 @@ public class VueJoueurs extends VerticalLayout {
         } catch (SQLException e) { Notification.show("Erreur"); }
     }
 
-    private void ouvrirDialogEdition(Joueur joueur) {  }
+    private void ouvrirDialogEdition(Joueur joueur) {Dialog dialog = new Dialog();
+        dialog.setHeaderTitle(joueur.getId() == null ? "Nouveau Joueur" : "Modifier Joueur");
+
+        nom.setValue(joueur.getNom() != null ? joueur.getNom() : "");
+        prenom.setValue(joueur.getPrenom() != null ? joueur.getPrenom() : "");
+        surnom.setValue(joueur.getSurnom() != null ? joueur.getSurnom() : "");
+        sexe.setValue(joueur.getSexe() != null ? joueur.getSexe() : "");
+
+        FormLayout formLayout = new FormLayout(surnom, nom, prenom, sexe);
+        
+        Button saveButton = new Button("Enregistrer", e -> {
+            if (surnom.getValue().isEmpty()) {
+                Notification.show("Le surnom est obligatoire");
+                return;
+            }
+            
+            joueur.setNom(nom.getValue());
+            joueur.setPrenom(prenom.getValue());
+            joueur.setSurnom(surnom.getValue());
+            joueur.setSexe(sexe.getValue());
+
+            sauvegarderJoueur(joueur);
+            dialog.close();
+        });
+
+        Button cancelButton = new Button("Annuler", e -> dialog.close());
+
+        dialog.add(formLayout);
+        dialog.getFooter().add(cancelButton, saveButton);
+        dialog.open();  }
     private void sauvegarderJoueur(Joueur joueur) {  }
-    private void supprimerJoueur(Joueur joueur) {  }
+    private void supprimerJoueur(Joueur joueur) {try (Connection con = ConnectionPool.getConnection()) {
+            try (PreparedStatement pst = con.prepareStatement("DELETE FROM composition WHERE idJoueur = ?")) {
+                pst.setInt(1, joueur.getId());
+                pst.executeUpdate();
+            }
+            try (PreparedStatement pst = con.prepareStatement("DELETE FROM joueur WHERE id = ?")) {
+                pst.setInt(1, joueur.getId());
+                pst.executeUpdate();
+            }
+            Notification.show("Joueur supprimé").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            rafraichirGrille();
+        } catch (SQLException e) {
+            Notification.show("Impossible de supprimer (Joueur engagé dans un match ?)");
+        }
+  }
     private void updateJoueurInDB(Connection con, Joueur j) throws SQLException {  }
 
     private static class LigneResume {
