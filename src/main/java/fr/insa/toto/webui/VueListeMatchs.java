@@ -1,3 +1,21 @@
+/*
+Copyright 2000- Francois de Bertrand de Beuvron
+
+This file is part of CoursBeuvron.
+
+CoursBeuvron is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+CoursBeuvron is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with CoursBeuvron.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.button.Button;
@@ -5,7 +23,6 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -16,7 +33,6 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.QueryParameters;
 import fr.insa.beuvron.utils.database.ConnectionPool;
 import fr.insa.toto.model.Tournoi;
 import fr.insa.toto.webui.security.SessionInfo;
@@ -24,7 +40,6 @@ import fr.insa.toto.webui.security.SessionInfo;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Route(value = "matchs", layout = MainLayout.class)
 @PageTitle("Liste des Matchs")
@@ -38,6 +53,7 @@ public class VueListeMatchs extends VerticalLayout {
     public VueListeMatchs() {
         add(new H2("Matchs et Résultats"));
 
+        // --- FILTRES ---
         HorizontalLayout filtres = new HorizontalLayout();
         filtres.setAlignItems(Alignment.BASELINE);
 
@@ -70,46 +86,31 @@ public class VueListeMatchs extends VerticalLayout {
         filtres.add(comboTournois, comboRondes, comboStatut);
         add(filtres);
 
+        // --- GRILLE ---
         grid = new Grid<>(MatchSimpleInfo.class, false);
         grid.addColumn(m -> m.nomTournoi).setHeader("Tournoi").setAutoWidth(true);
         grid.addColumn(m -> "Ronde " + m.numRonde).setHeader("Ronde").setWidth("100px");
         grid.addColumn(m -> "Terrain " + m.idTerrain).setHeader("Terrain").setWidth("100px");
 
+        // Colonne dynamique pour afficher N équipes et leurs scores
         grid.addColumn(new ComponentRenderer<>(match -> {
             VerticalLayout layoutMatch = new VerticalLayout();
             layoutMatch.setPadding(false);
             layoutMatch.setSpacing(false);
             try (Connection con = ConnectionPool.getConnection()) {
-                String sql = "SELECT e.num, e.score, j.surnom " +
+                String sql = "SELECT e.id, e.num, e.score, GROUP_CONCAT(j.surnom SEPARATOR ', ') as joueurs " +
                              "FROM equipe e " +
                              "JOIN composition c ON c.idEquipe = e.id " +
                              "JOIN joueur j ON j.id = c.idJoueur " +
                              "WHERE e.idMatch = ? " +
-                             "ORDER BY e.num, j.surnom";
+                             "GROUP BY e.id ORDER BY e.num";
                 try (PreparedStatement pst = con.prepareStatement(sql)) {
                     pst.setInt(1, match.idMatch);
                     try (ResultSet rs = pst.executeQuery()) {
-                        int currentEquipe = -1;
-                        HorizontalLayout currentLine = null;
                         while (rs.next()) {
-                            int numEq = rs.getInt("num");
-                            if (numEq != currentEquipe) {
-                                currentEquipe = numEq;
-                                String scoreStr = rs.getObject("score") != null ? rs.getString("score") : "?";
-                                currentLine = new HorizontalLayout();
-                                currentLine.setSpacing(true);
-                                
-                                currentLine.add(new Span("Équipe " + numEq + " ["));
-                                layoutMatch.add(currentLine);
-                                // Fin de ligne pour le score
-                                Span scoreLabel = new Span("] - Score: " + scoreStr);
-                                layoutMatch.add(scoreLabel); 
-                            }
-                            
-                            String surnom = rs.getString("surnom");
-                            Anchor link = new Anchor("joueurs?surnom=" + surnom, surnom);
-                            link.getStyle().set("color", "blue").set("text-decoration", "underline");
-                            currentLine.add(link);
+                            String scoreStr = rs.getObject("score") != null ? rs.getString("score") : "?";
+                            Span line = new Span("Équipe " + rs.getInt("num") + " [" + rs.getString("joueurs") + "] - Score: " + scoreStr);
+                            layoutMatch.add(line);
                         }
                     }
                 }
@@ -209,9 +210,11 @@ public class VueListeMatchs extends VerticalLayout {
             try {
                 for (EquipeSaisie s : saisies) {
                     int score = s.field.getValue() != null ? s.field.getValue() : 0;
+                    // Mise à jour équipe
                     try (PreparedStatement pst = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?")) {
                         pst.setInt(1, score); pst.setInt(2, s.idEquipe); pst.executeUpdate();
                     }
+                    // Mise à jour points joueurs
                     try (PreparedStatement pst = con.prepareStatement("UPDATE joueur SET scoreTotal = scoreTotal + ? WHERE id IN (SELECT idJoueur FROM composition WHERE idEquipe = ?)")) {
                         pst.setInt(1, score); pst.setInt(2, s.idEquipe); pst.executeUpdate();
                     }
@@ -225,6 +228,7 @@ public class VueListeMatchs extends VerticalLayout {
         } catch (SQLException ex) { Notification.show("Erreur : " + ex.getMessage()); }
     }
 
+    // Classes utilitaires internes
     public static class MatchSimpleInfo {
         public int idMatch, idTerrain, numRonde;
         public String statut, nomTournoi;
