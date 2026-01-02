@@ -10,11 +10,12 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import fr.insa.beuvron.utils.database.ConnectionPool;
@@ -31,17 +32,28 @@ import java.util.stream.Collectors;
 
 @Route(value = "joueurs", layout = MainLayout.class)
 @PageTitle("Gestion des Joueurs")
-public class VueJoueurs extends VerticalLayout {
+public class VueJoueurs extends VerticalLayout implements BeforeEnterObserver {
 
     private Grid<Joueur> grid;
     private TextField filtreSurnom = new TextField("Rechercher par surnom");
 
-    // Champs pour le formulaire d'édition
     private TextField nom = new TextField("Nom");
     private TextField prenom = new TextField("Prénom");
     private TextField surnom = new TextField("Surnom");
     private TextField sexe = new TextField("Sexe (M/F)");
     private DatePicker dateNaissance = new DatePicker("Date de naissance");
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        // Lecture du paramètre 'surnom' dans l'URL
+        event.getLocation().getQueryParameters().getParameters()
+             .getOrDefault("surnom", List.of())
+             .stream().findFirst()
+             .ifPresent(s -> {
+                 filtreSurnom.setValue(s);
+                 rafraichirGrille();
+             });
+    }
 
     public VueJoueurs() {
         add(new H2("Liste des Joueurs"));
@@ -60,17 +72,14 @@ public class VueJoueurs extends VerticalLayout {
         grid.addColumn(Joueur::getPrenom).setHeader("Prénom");
         grid.addColumn(Joueur::getScoreTotal).setHeader("Score Total").setSortable(true);
 
-        // Colonne d'actions (Détails + Edition/Suppression)
         grid.addComponentColumn(joueur -> {
             HorizontalLayout actions = new HorizontalLayout();
             
-            // Bouton Résumé/Détails (accessible à tous)
             Button infoBtn = new Button(VaadinIcon.SEARCH.create(), e -> ouvrirDialogResume(joueur));
             infoBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
             infoBtn.setTooltipText("Voir l'historique des matchs");
             actions.add(infoBtn);
 
-            // Boutons d'administration
             if (SessionInfo.isCurUserAdmin()) {
                 Button editBtn = new Button(VaadinIcon.EDIT.create(), e -> ouvrirDialogEdition(joueur));
                 Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> supprimerJoueur(joueur));
@@ -93,9 +102,6 @@ public class VueJoueurs extends VerticalLayout {
         rafraichirGrille();
     }
 
-    /**
-     * Ouvre une fenêtre affichant le résumé des participations du joueur.
-     */
     private void ouvrirDialogResume(Joueur joueur) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Historique : " + joueur.getSurnom());
@@ -110,7 +116,6 @@ public class VueJoueurs extends VerticalLayout {
 
         List<HistoriqueMatch> donnees = new ArrayList<>();
 
-        // Requête SQL de jointure pour remonter toute la chaîne
         String sql = "SELECT t.nom as tournoi, r.numero as ronde, m.id as idMatch, e.score, m.statut " +
                      "FROM composition c " +
                      "JOIN equipe e ON c.idEquipe = e.id " +
@@ -147,7 +152,6 @@ public class VueJoueurs extends VerticalLayout {
         dialog.open();
     }
 
-    // Petite classe interne pour structurer les données du tableau d'historique
     private static class HistoriqueMatch {
         String tournoi;
         int ronde;
@@ -164,7 +168,6 @@ public class VueJoueurs extends VerticalLayout {
         }
     }
 
-    // --- LE RESTE DU CODE (Edition, Suppression, etc.) RESTE IDENTIQUE ---
     private void rafraichirGrille() {
         try (Connection con = ConnectionPool.getConnection()) {
             List<Joueur> joueurs = Joueur.findAll(con);
