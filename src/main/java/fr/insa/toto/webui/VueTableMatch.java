@@ -36,13 +36,12 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     
     private Span messageVide = new Span("Aucun match en cours pour ce tournoi.");
     private VerticalLayout zoneArbitrage = new VerticalLayout();
-    private HorizontalLayout layoutEquipes = new HorizontalLayout(); // Zone dynamique pour les scores
+    private HorizontalLayout layoutEquipes = new HorizontalLayout(); 
     
     private Span labelChrono = new Span();
     private Button btnStart;
     private ScheduledExecutorService timer;
 
-    // Classe locale pour stocker les infos de match simplifiées
     public static class MatchInfo {
         int idMatch;
         public MatchInfo(int idM) { this.idMatch = idM; }
@@ -59,9 +58,16 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     }
 
     public VueTableMatch() {
-        setSizeFull();
+        // Correction pour le fond blanc : on occupe toute la hauteur et largeur
+        setWidthFull();
+        setMinHeight("100vh"); 
+        setHeight("auto");
         setAlignItems(Alignment.CENTER);
-        getStyle().set("background-color", "#E6E6FA"); // Mauve clair pour harmoniser
+        
+        // Couleur de fond mauve
+        getStyle().set("background-color", "#E6E6FA"); 
+        // Astuce pour forcer le parent à avoir la même couleur et éviter le blanc au scroll
+        getElement().executeJs("this.parentNode.style.backgroundColor = '#E6E6FA'");
 
         messageVide.getStyle().set("color", "red").set("font-weight", "bold").set("font-size", "1.5em");
         messageVide.setVisible(false);
@@ -130,9 +136,6 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         } catch (Exception e) { Notification.show("Erreur : " + e.getMessage()); }
     }
 
-    /**
-     * Récupère les noms des joueurs d'une équipe donnée pour l'affichage.
-     */
     private String recupererNomsJoueurs(int idEquipe) {
         List<String> noms = new ArrayList<>();
         try (Connection con = ConnectionPool.getConnection()) {
@@ -146,22 +149,20 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
                 noms.add(rs.getString("nom"));
             }
         } catch (SQLException e) {
-            return "Erreur chargement joueurs";
+            return "Erreur joueurs";
         }
-        return noms.isEmpty() ? "Aucun joueur" : String.join(", ", noms);
+        return noms.isEmpty() ? "Sans joueurs" : String.join(", ", noms);
     }
 
     private void chargerDonneesMatchDynamique() {
         layoutEquipes.removeAll();
         try (Connection con = ConnectionPool.getConnection()) {
-            // Temps du match
             String sqlT = "SELECT r.duree FROM ronde r JOIN matchs m ON m.idRonde = r.id WHERE m.id = ?";
             PreparedStatement psT = con.prepareStatement(sqlT);
             psT.setInt(1, matchSelectionne.idMatch);
             ResultSet rsT = psT.executeQuery();
             if (rsT.next()) this.secondesRestantes = rsT.getInt("duree") * 60;
 
-            // Création dynamique des zones de score pour chaque équipe
             String sqlE = "SELECT id, num, score FROM equipe WHERE idMatch = ? ORDER BY num";
             PreparedStatement psE = con.prepareStatement(sqlE);
             psE.setInt(1, matchSelectionne.idMatch);
@@ -171,10 +172,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
                 int idEq = rsE.getInt("id");
                 int numEq = rsE.getInt("num");
                 int scoreInit = rsE.getInt("score");
-                
-                // Récupération des noms des joueurs
                 String joueurs = recupererNomsJoueurs(idEq);
-                
                 layoutEquipes.add(creerZoneScoreDynamique(idEq, numEq, scoreInit, joueurs));
             }
         } catch (Exception e) { Notification.show("Erreur données match"); }
@@ -189,7 +187,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
         
         layoutEquipes.setWidthFull();
         layoutEquipes.setJustifyContentMode(JustifyContentMode.CENTER);
-        layoutEquipes.getStyle().set("flex-wrap", "wrap"); // Pour que les équipes passent à la ligne si besoin
+        layoutEquipes.getStyle().set("flex-wrap", "wrap"); 
 
         Button btnEnd = new Button("Terminer le match", e -> finaliserMatch());
         btnEnd.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_PRIMARY);
@@ -200,21 +198,17 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     private VerticalLayout creerZoneScoreDynamique(int idEquipe, int num, int scoreActuel, String nomsJoueurs) {
         H2 nomLabel = new H2("Équipe " + num);
         
-        // Composant pour afficher les noms des joueurs
+        // Affichage des joueurs
         Span joueursLabel = new Span(nomsJoueurs);
         joueursLabel.getStyle()
             .set("font-style", "italic")
-            .set("color", "#555555")
+            .set("color", "#444444")
             .set("text-align", "center")
             .set("font-size", "0.9em")
-            .set("margin-bottom", "10px");
-        
-        // Permet le retour à la ligne si la liste de noms est longue
-        joueursLabel.setWidth("180px");
+            .set("margin-bottom", "5px");
+        joueursLabel.setWidth("190px"); 
 
         H1 scoreLabel = new H1(String.valueOf(scoreActuel));
-        
-        // Stockage local du score pour cette instance de composant
         final int[] scoreLocal = {scoreActuel};
 
         Button bPlus = new Button("+1", e -> {
@@ -230,11 +224,11 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             }
         });
 
-        // Ajout du label des joueurs entre le nom de l'équipe et le score
+        // Insertion des joueurs entre le nom et le score
         VerticalLayout v = new VerticalLayout(nomLabel, joueursLabel, scoreLabel, bPlus, bMoins);
         v.setAlignItems(Alignment.CENTER);
-        v.getStyle().set("border", "1px solid gray").set("border-radius", "10px").set("padding", "10px");
-        v.setWidth("220px");
+        v.getStyle().set("border", "1px solid gray").set("border-radius", "10px").set("padding", "10px").set("background", "white");
+        v.setWidth("230px");
         return v;
     }
 
