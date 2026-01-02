@@ -41,7 +41,6 @@ public class VueJoueurs extends VerticalLayout {
     public VueJoueurs() {
         add(new H2("Liste des Joueurs"));
 
-        // 1. Barre de recherche seule en haut
         HorizontalLayout toolbar = new HorizontalLayout();
         filtreSurnom.setPlaceholder("Tapez un surnom...");
         filtreSurnom.setClearButtonVisible(true);
@@ -50,7 +49,6 @@ public class VueJoueurs extends VerticalLayout {
         toolbar.add(filtreSurnom);
         add(toolbar);
 
-        // 2. Configuration de la Grille (Tableau)
         grid = new Grid<>(Joueur.class, false);
         grid.addColumn(Joueur::getId).setHeader("ID").setWidth("60px").setFlexGrow(0);
         grid.addColumn(Joueur::getSurnom).setHeader("Surnom").setSortable(true);
@@ -73,17 +71,16 @@ public class VueJoueurs extends VerticalLayout {
             return actions;
         }).setHeader("Actions").setAutoWidth(true);
 
-        add(grid); // Ajout de la grille au layout
+        add(grid);
 
-        // 3. Bouton "Nouveau Joueur" placé EN DESSOUS de la grille
         if (SessionInfo.isCurUserAdmin()) {
             Button addBtn = new Button("Nouveau Joueur", VaadinIcon.PLUS.create(), e -> {
-                // Utilisation du constructeur existant : Joueur(Integer id, String nom, String prenom, String surnom, String sexe, java.sql.Date date, int score)
+                // Utilisation du constructeur à 7 paramètres identifié dans Joueur.java
                 Joueur nouveauJoueur = new Joueur(null, "", "", "", "", null, 0); 
                 ouvrirDialogEdition(nouveauJoueur);
             });
             addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            add(addBtn); // Ajouté après la grille pour être visuellement en dessous
+            add(addBtn); 
         }
 
         rafraichirGrille();
@@ -149,17 +146,19 @@ public class VueJoueurs extends VerticalLayout {
         FormLayout formLayout = new FormLayout(surnom, nom, prenom, sexe);
         
         Button saveButton = new Button("Enregistrer", e -> {
-            if (surnom.getValue().isEmpty()) {
+            if (surnom.getValue().trim().isEmpty()) {
                 Notification.show("Le surnom est obligatoire");
                 return;
             }
+            
             joueur.setNom(nom.getValue());
             joueur.setPrenom(prenom.getValue());
             joueur.setSurnom(surnom.getValue());
             joueur.setSexe(sexe.getValue());
 
-            sauvegarderJoueur(joueur);
-            dialog.close();
+            if (sauvegarderJoueur(joueur)) {
+                dialog.close();
+            }
         });
         saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
@@ -168,11 +167,33 @@ public class VueJoueurs extends VerticalLayout {
         dialog.open();
     }
 
-    private void sauvegarderJoueur(Joueur joueur) {
+    /**
+     * Tente de sauvegarder le joueur. Retourne true si succès, false si erreur (ex: surnom doublon).
+     */
+    private boolean sauvegarderJoueur(Joueur joueur) {
         try (Connection con = ConnectionPool.getConnection()) {
+            // VERIFICATION DU DOUBLON DE SURNOM
+            String checkSql = "SELECT COUNT(*) FROM joueur WHERE surnom = ? AND (id <> ? OR ? IS NULL)";
+            try (PreparedStatement checkPst = con.prepareStatement(checkSql)) {
+                checkPst.setString(1, joueur.getSurnom());
+                if (joueur.getId() != null) {
+                    checkPst.setInt(2, joueur.getId());
+                    checkPst.setInt(3, joueur.getId());
+                } else {
+                    checkPst.setNull(2, Types.INTEGER);
+                    checkPst.setNull(3, Types.INTEGER);
+                }
+                
+                ResultSet rs = checkPst.executeQuery();
+                if (rs.next() && rs.getInt(1) > 0) {
+                    Notification n = Notification.show("Erreur : Ce surnom est déjà utilisé par un autre joueur.");
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    return false;
+                }
+            }
+
+            // INSERTION OU MISE A JOUR
             if (joueur.getId() == null) {
-                // Utilisation de la méthode insertInDB si vous souhaitez centraliser la logique dans le modèle
-                // Sinon, insertion directe :
                 String sql = "INSERT INTO joueur (nom, prenom, surnom, sexe, scoreTotal) VALUES (?,?,?,?,0)";
                 try (PreparedStatement pst = con.prepareStatement(sql)) {
                     pst.setString(1, joueur.getNom());
@@ -192,21 +213,21 @@ public class VueJoueurs extends VerticalLayout {
                     pst.executeUpdate();
                 }
             }
-            Notification.show("Joueur enregistré").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            Notification.show("Joueur enregistré avec succès").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             rafraichirGrille();
+            return true;
         } catch (SQLException e) {
-            Notification.show("Erreur technique lors de la sauvegarde : " + e.getMessage());
+            Notification.show("Erreur technique : " + e.getMessage());
+            return false;
         }
     }
 
     private void supprimerJoueur(Joueur joueur) {
         try (Connection con = ConnectionPool.getConnection()) {
-            // Suppression des liens dans composition pour éviter l'erreur de clé étrangère
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM composition WHERE idJoueur = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
             }
-            // Suppression du joueur
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM joueur WHERE id = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
