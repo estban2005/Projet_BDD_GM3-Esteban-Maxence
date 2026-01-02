@@ -9,10 +9,7 @@ import java.util.List;
 
 public class ServiceGestionTournoi {
 
-    /**
-     * Génère une nouvelle ronde en créant autant de matchs que possible 
-     * selon le nombre de terrains et de joueurs disponibles.
-     */
+    
     public static void genererNouvelleRonde(Connection con, int idTournoi, int nbEquipesParMatch, int duree) throws SQLException {
         // 1. Récupération des paramètres du tournoi
         List<Tournoi> tournois = Tournoi.findAll(con);

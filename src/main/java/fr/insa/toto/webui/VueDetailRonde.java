@@ -38,14 +38,14 @@ public class VueDetailRonde extends VerticalLayout implements HasUrlParameter<In
         gridMatchs.addColumn(Matchs::getId).setHeader("Match ID").setWidth("80px").setFlexGrow(0);
         gridMatchs.addColumn(m -> "Terrain " + m.getIdTerrain()).setHeader("Terrain");
 
-        // --- AFFICHAGE DYNAMIQUE (SANS MODIFIER LE MODÈLE EQUIPE) ---
+        
         gridMatchs.addColumn(new ComponentRenderer<>(match -> {
             VerticalLayout layoutMatch = new VerticalLayout();
             layoutMatch.setPadding(false); 
             layoutMatch.setSpacing(false);
 
             try (Connection con = ConnectionPool.getConnection()) {
-                // 1. Récupération manuelle des équipes du match
+                
                 String sqlEquipes = "SELECT id, num, score FROM equipe WHERE idMatch = ? ORDER BY num";
                 try (PreparedStatement pstEq = con.prepareStatement(sqlEquipes)) {
                     pstEq.setInt(1, match.getId());
@@ -55,7 +55,7 @@ public class VueDetailRonde extends VerticalLayout implements HasUrlParameter<In
                             int numEq = rsEq.getInt("num");
                             int scoreEq = rsEq.getInt("score");
 
-                            // 2. Récupération manuelle des surnoms des joueurs de cette équipe
+                            
                             List<String> surnoms = new ArrayList<>();
                             String sqlJoueurs = "SELECT j.surnom FROM joueur j " +
                                                "JOIN composition c ON j.id = c.idJoueur " +
@@ -83,7 +83,7 @@ public class VueDetailRonde extends VerticalLayout implements HasUrlParameter<In
 
         gridMatchs.addColumn(Matchs::getStatut).setHeader("Statut");
 
-        // Le bouton n'est ajouté que si l'utilisateur est Admin 
+        
         if (SessionInfo.isCurUserAdmin()) {
             gridMatchs.addComponentColumn(match -> {
                 if ("CLOSE".equals(match.getStatut())) {

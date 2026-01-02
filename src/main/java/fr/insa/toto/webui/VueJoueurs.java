@@ -118,10 +118,10 @@ public class VueJoueurs extends VerticalLayout {
         } catch (SQLException e) { Notification.show("Erreur"); }
     }
 
-    private void ouvrirDialogEdition(Joueur joueur) { /* ... identique au code précédent ... */ }
-    private void sauvegarderJoueur(Joueur joueur) { /* ... identique au code précédent ... */ }
-    private void supprimerJoueur(Joueur joueur) { /* ... identique au code précédent ... */ }
-    private void updateJoueurInDB(Connection con, Joueur j) throws SQLException { /* ... identique au code précédent ... */ }
+    private void ouvrirDialogEdition(Joueur joueur) {  }
+    private void sauvegarderJoueur(Joueur joueur) {  }
+    private void supprimerJoueur(Joueur joueur) {  }
+    private void updateJoueurInDB(Connection con, Joueur j) throws SQLException {  }
 
     private static class LigneResume {
         String nomTournoi; int numRonde; int idMatch; int score; String statut;

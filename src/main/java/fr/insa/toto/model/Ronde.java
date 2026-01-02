@@ -14,7 +14,7 @@ public class Ronde {
     private int numero;
     private String statut;
     private int idTournoi;
-    private int duree; // <-- Nouvelle propriété
+    private int duree; 
 
     public Ronde(int id, int numero, String statut, int idTournoi, int duree) {
         this.id = id;
@@ -33,7 +33,7 @@ public class Ronde {
     }
 
     public void insertInDB(Connection con) throws SQLException {
-        // Ajout de 'duree' dans le INSERT
+        
         String sql = "INSERT INTO ronde (numero, statut, idTournoi, duree) VALUES (?, ?, ?, ?)";
         try (PreparedStatement pst = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pst.setInt(1, this.numero);
@@ -63,7 +63,7 @@ public class Ronde {
                         rs.getInt("numero"),
                         rs.getString("statut"),
                         rs.getInt("idTournoi"),
-                        rs.getInt("duree") // <-- Récupération depuis la BDD
+                        rs.getInt("duree") 
                     ));
                 }
             }

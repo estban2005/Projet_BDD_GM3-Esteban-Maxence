@@ -41,10 +41,9 @@ import java.sql.SQLException;
 public class CreationAdmine extends VerticalLayout {
 
     public CreationAdmine() {
-        // --- MODIFICATION : AJOUT DE LA COULEUR MAUVE ---
-        setSizeFull(); // Pour que la couleur couvre tout l'écran
-        getStyle().set("background-color", "#E6E6FA"); // Mauve (Mauve clair/Lavender)
-        // -----------------------------------------------
+        
+        setSizeFull(); 
+        getStyle().set("background-color", "#E6E6FA"); 
 
         add(new H2("Créer un nouvel utilisateur"));
 
@@ -53,7 +52,7 @@ public class CreationAdmine extends VerticalLayout {
         
         ComboBox<String> roleSelect = new ComboBox<>("Rôle");
         roleSelect.setItems("Utilisateur", "Administrateur");
-        roleSelect.setValue("Utilisateur"); // Valeur par défaut
+        roleSelect.setValue("Utilisateur"); 
 
         Button saveButton = new Button("Enregistrer", e -> {
             try (Connection con = ConnectionPool.getConnection()) {

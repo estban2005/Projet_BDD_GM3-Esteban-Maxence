@@ -5,9 +5,7 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 
-/**
- * Fenêtre d'aide personnalisée.
- */
+
 public class AideDialog extends Dialog {
 
     public AideDialog() {

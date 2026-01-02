@@ -25,14 +25,13 @@ import java.util.stream.Collectors;
 public class MatchInfo {
     public int idMatch;
     public int idTerrain;
-    public String statut; // "EN_COURS" ou "CLOSE"
+    public String statut; 
     
-    // On remplace idEquipe1, score1... par une liste dynamique
-    public List<EquipeInfo> equipes = new ArrayList<>();
+        public List<EquipeInfo> equipes = new ArrayList<>();
 
     public String getDescriptionDuel() {
         if (equipes.isEmpty()) return "Match non configuré";
-        // Affiche "Joueur A VS Joueur B VS Joueur C..."
+        
         return equipes.stream()
                 .map(e -> e.nom)
                 .collect(Collectors.joining("  VS  "));

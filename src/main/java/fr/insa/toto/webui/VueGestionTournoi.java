@@ -36,7 +36,7 @@ public class VueGestionTournoi extends VerticalLayout {
         nbEquipesField.setWidth("300px");
         nbEquipesField.setValue(2);
         
-        // --- NOUVEAU CHAMP ---
+      
         IntegerField dureeField = new IntegerField("Durée de la ronde (minutes)");
         dureeField.setWidth("300px");
         dureeField.setValue(15); 
@@ -62,7 +62,7 @@ public class VueGestionTournoi extends VerticalLayout {
         add(new Paragraph("Configuration de la nouvelle ronde :"), 
             tournoiSelect, 
             nbEquipesField, 
-            dureeField, // Placé juste en dessous
+            dureeField, 
             btnGenerer);
     }
 }

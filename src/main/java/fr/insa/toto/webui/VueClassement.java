@@ -31,13 +31,13 @@ public class VueClassement extends VerticalLayout {
     private Grid<Joueur> grid = new Grid<>(Joueur.class, false);
     private ComboBox<Tournoi> selectTournoi = new ComboBox<>("Filtrer par Tournoi");
     private ComboBox<Ronde> selectRonde = new ComboBox<>("Filtrer par Ronde");
-    // Nouveau bouton
+    
     private Button btnEffacer = new Button("Effacer les filtres", VaadinIcon.CLOSE_CIRCLE.create());
 
     public VueClassement() {
         add(new H2("Classement du Tournoi"));
 
-        // Configuration du bouton d'effacement
+       
         btnEffacer.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
         btnEffacer.addClickListener(e -> {
             selectTournoi.clear();
@@ -46,23 +46,23 @@ public class VueClassement extends VerticalLayout {
             actualiserClassement();
         });
 
-        // Configuration des filtres (ajout du bouton à côté)
+        
         HorizontalLayout filtres = new HorizontalLayout(selectTournoi, selectRonde, btnEffacer);
         filtres.setVerticalComponentAlignment(Alignment.END, selectTournoi, selectRonde, btnEffacer);
         add(filtres);
 
-        // Configuration de la grille
+       
         grid.addColumn(Joueur::getSurnom).setHeader("Joueur");
         grid.addColumn(Joueur::getNom).setHeader("Nom");
         grid.addColumn(Joueur::getPrenom).setHeader("Prénom");
         grid.addColumn(Joueur::getScoreTotal).setHeader("Points").setSortable(true);
         add(grid);
 
-        // Initialisation des données
+      
         chargerTournois();
         selectRonde.setEnabled(false);
 
-        // Listeners pour les filtres
+        
         selectTournoi.addValueChangeListener(e -> {
             if (e.getValue() != null) {
                 chargerRondes(e.getValue().getId());
@@ -76,7 +76,7 @@ public class VueClassement extends VerticalLayout {
 
         selectRonde.addValueChangeListener(e -> actualiserClassement());
 
-        // Premier affichage (Général)
+        
         actualiserClassement();
     }
 
@@ -111,7 +111,7 @@ public class VueClassement extends VerticalLayout {
             } else if (t != null) {
                 classement = calculerScoreFiltre(con, "r.idTournoi = ?", t.getId());
             } else {
-                // Classement GÉNÉRAL
+                
                 classement = Joueur.findAll(con);
                 classement.sort(Comparator.comparingInt(Joueur::getScoreTotal).reversed());
             }

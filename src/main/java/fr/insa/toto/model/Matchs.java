@@ -25,9 +25,9 @@ import java.util.List;
 public class Matchs {
 
     private Integer id;
-    private String statut;   // EN_COURS / CLOSE
+    private String statut;   
     private int idRonde;
-    private Integer idTerrain; // peut être null
+    private Integer idTerrain; 
 
     public Matchs(String statut, int idRonde, Integer idTerrain) {
         this.id = null;

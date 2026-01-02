@@ -38,9 +38,7 @@ public class Utilisateur extends ClasseMiroir {
     private String pass;
     private int role;
 
-    /**
-     * pour nouvel utilisateur en mémoire
-     */
+    
     public Utilisateur(String surnom, String pass, int role) {
         super();
         this.surnom = surnom;
@@ -48,9 +46,7 @@ public class Utilisateur extends ClasseMiroir {
         this.role = role;
     }
 
-    /**
-     * pour utilisateur récupéré de la base de données
-     */
+    
     public Utilisateur(int id, String surnom, String pass, int role) {
         super(id);
         this.surnom = surnom;
@@ -83,13 +79,7 @@ public class Utilisateur extends ClasseMiroir {
         return res;
     }
 
-    /**
-     * supprime l'utilisateur de la BdD. Attention : supprime d'abord les
-     * éventuelles dépendances.
-     *
-     * @param con
-     * @throws SQLException
-     */
+    
     public void deleteInDB(Connection con) throws SQLException {
         if (this.getId() == -1) {
             throw new ClasseMiroir.EntiteNonSauvegardee();

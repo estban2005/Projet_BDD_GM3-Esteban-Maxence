@@ -26,7 +26,7 @@ public class Equipe {
 
     private Integer id;
     private int num;
-    private Integer score;  // peut être null si match pas terminé
+    private Integer score;  
     private int idMatch;
 
     public Equipe(int num, Integer score, int idMatch) {

@@ -69,12 +69,10 @@ public class Tournoi {
         return res;
     }
 
-    /**
-     * Supprime un tournoi et toutes ses dépendances en cascade.
-     */
+    
     public static void deleteById(Connection con, int idTournoi) throws SQLException {
         boolean initialAutoCommit = con.getAutoCommit();
-        con.setAutoCommit(false); // Début de la transaction
+        con.setAutoCommit(false); 
 
         try {
             // 1. Supprimer les COMPOSITIONS
@@ -121,9 +119,9 @@ public class Tournoi {
                 pstT.executeUpdate();
             }
 
-            con.commit(); // Validation
+            con.commit(); 
         } catch (SQLException e) {
-            con.rollback(); // Annulation en cas d'erreur
+            con.rollback(); 
             throw e;
         } finally {
             con.setAutoCommit(initialAutoCommit);

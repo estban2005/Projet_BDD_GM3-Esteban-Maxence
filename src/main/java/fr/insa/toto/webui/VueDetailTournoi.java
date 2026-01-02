@@ -111,7 +111,7 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         gridRondes = new Grid<>(RondeInfo.class, false);
         gridRondes.addColumn(r -> "Ronde " + r.numero).setHeader("Nom").setSortable(true);
         
-        // --- NOUVELLE COLONNE DUREE ---
+        
         gridRondes.addColumn(r -> r.duree + " min").setHeader("Temps");
 
         gridRondes.addComponentColumn(r -> {
@@ -123,7 +123,7 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         gridRondes.addComponentColumn(r -> {
             Button btnVoir = new Button("Voir les matchs", VaadinIcon.ARROW_RIGHT.create());
             btnVoir.addClickListener(e -> {
-                // On utilise la classe cible et l'id comme paramètre
+                
                 getUI().ifPresent(ui -> ui.navigate(VueDetailRonde.class, r.id));
             });
             return btnVoir;
@@ -154,7 +154,7 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         IntegerField nbEquipesField = new IntegerField("Nombre d'équipes par match");
         nbEquipesField.setValue(2);
         
-        // --- NOUVEAU CHAMP DUREE ---
+      
         IntegerField dureeField = new IntegerField("Durée (minutes)");
         dureeField.setValue(15);
         
@@ -170,20 +170,19 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         dialog.open();
     }
 
-    // Dans VueDetailTournoi.java, assurez-vous que la méthode d'appel est correcte :
+   
     private void lancerGeneration(int nbEquipes, int duree) {
         try (Connection con = ConnectionPool.getConnection()) {
-            // L'appel au service va maintenant créer TOUS les matchs possibles
+            
             ServiceGestionTournoi.genererNouvelleRonde(con, idTournoi, nbEquipes, duree);
             Notification.show("Ronde générée avec succès !").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            afficherVueRondes(); // Rafraîchit l'affichage
+            afficherVueRondes(); 
         } catch (Exception ex) {
             Notification.show("Erreur de génération : " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
-    // Le reste des méthodes (afficherVueMatchs, recupererRondes, etc.) 
-    // doit être conservé tel quel à partir de votre code d'origine.
+ 
     private List<RondeInfo> recupererRondes(Connection con) throws SQLException {
         List<RondeInfo> res = new ArrayList<>();
         String sql = "SELECT r.id, r.numero, r.duree, (SELECT COUNT(*) FROM matchs m WHERE m.idRonde = r.id AND m.statut != 'CLOSE') as encours " +
@@ -209,6 +208,6 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
         return true; 
     }
 
-    private void afficherVueMatchs(RondeInfo ronde) { /* Code inchangé */ }
-    private void afficherClassementLocal() { /* Code inchangé */ }
+    private void afficherVueMatchs(RondeInfo ronde) {  }
+    private void afficherClassementLocal() { }
 }
