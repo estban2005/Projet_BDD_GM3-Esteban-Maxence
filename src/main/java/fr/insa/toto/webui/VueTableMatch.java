@@ -58,15 +58,15 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     }
 
     public VueTableMatch() {
-        // Correction pour le fond blanc : on occupe toute la hauteur et largeur
+        
         setWidthFull();
         setMinHeight("100vh"); 
         setHeight("auto");
         setAlignItems(Alignment.CENTER);
         
-        // Couleur de fond mauve
+        
         getStyle().set("background-color", "#E6E6FA"); 
-        // Astuce pour forcer le parent à avoir la même couleur et éviter le blanc au scroll
+        
         getElement().executeJs("this.parentNode.style.backgroundColor = '#E6E6FA'");
 
         messageVide.getStyle().set("color", "red").set("font-weight", "bold").set("font-size", "1.5em");
@@ -198,7 +198,6 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
     private VerticalLayout creerZoneScoreDynamique(int idEquipe, int num, int scoreActuel, String nomsJoueurs) {
         H2 nomLabel = new H2("Équipe " + num);
         
-        // Affichage des joueurs
         Span joueursLabel = new Span(nomsJoueurs);
         joueursLabel.getStyle()
             .set("font-style", "italic")
@@ -224,7 +223,7 @@ public class VueTableMatch extends VerticalLayout implements BeforeEnterObserver
             }
         });
 
-        // Insertion des joueurs entre le nom et le score
+        
         VerticalLayout v = new VerticalLayout(nomLabel, joueursLabel, scoreLabel, bPlus, bMoins);
         v.setAlignItems(Alignment.CENTER);
         v.getStyle().set("border", "1px solid gray").set("border-radius", "10px").set("padding", "10px").set("background", "white");

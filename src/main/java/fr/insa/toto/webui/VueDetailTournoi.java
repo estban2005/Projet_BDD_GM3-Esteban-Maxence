@@ -209,5 +209,23 @@ public class VueDetailTournoi extends VerticalLayout implements HasUrlParameter<
     }
 
     private void afficherVueMatchs(RondeInfo ronde) {  }
-    private void afficherClassementLocal() { }
+    private void afficherClassementLocal() { containerRondes.setVisible(false); containerMatchs.setVisible(false); containerRondes.removeAll();
+        Grid<JoueurScoreLocal> grid = new Grid<>(JoueurScoreLocal.class, false);
+        grid.addColumn(j -> j.surnom).setHeader("Joueur");
+        grid.addColumn(j -> j.scoreLocal).setHeader("Points (Ce tournoi)").setSortable(true);
+        try (Connection con = ConnectionPool.getConnection()) {
+            List<JoueurScoreLocal> liste = new ArrayList<>();
+            String sql = "SELECT j.surnom, COALESCE(SUM(e.score), 0) as total FROM joueur j " +
+                         "JOIN composition c ON j.id = c.idJoueur JOIN equipe e ON c.idEquipe = e.id " +
+                         "JOIN matchs m ON e.idMatch = m.id JOIN ronde r ON m.idRonde = r.id " +
+                         "WHERE r.idTournoi = ? GROUP BY j.id, j.surnom ORDER BY total DESC";
+            try (PreparedStatement pst = con.prepareStatement(sql)) {
+                pst.setInt(1, idTournoi);
+                try(ResultSet rs = pst.executeQuery()){
+                    while(rs.next()) liste.add(new JoueurScoreLocal(rs.getString("surnom"), rs.getInt("total")));
+                }
+            }
+            grid.setItems(liste); containerRondes.add(grid); containerRondes.setVisible(true);
+        } catch (SQLException e) { containerRondes.add(new Span("Erreur : " + e.getMessage())); containerRondes.setVisible(true); }
+    }
 }

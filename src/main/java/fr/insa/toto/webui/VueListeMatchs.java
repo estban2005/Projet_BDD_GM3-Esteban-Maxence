@@ -53,7 +53,7 @@ public class VueListeMatchs extends VerticalLayout {
     public VueListeMatchs() {
         add(new H2("Matchs et Résultats"));
 
-        // --- FILTRES ---
+      
         HorizontalLayout filtres = new HorizontalLayout();
         filtres.setAlignItems(Alignment.BASELINE);
 
@@ -86,13 +86,13 @@ public class VueListeMatchs extends VerticalLayout {
         filtres.add(comboTournois, comboRondes, comboStatut);
         add(filtres);
 
-        // --- GRILLE ---
+     
         grid = new Grid<>(MatchSimpleInfo.class, false);
         grid.addColumn(m -> m.nomTournoi).setHeader("Tournoi").setAutoWidth(true);
         grid.addColumn(m -> "Ronde " + m.numRonde).setHeader("Ronde").setWidth("100px");
         grid.addColumn(m -> "Terrain " + m.idTerrain).setHeader("Terrain").setWidth("100px");
 
-        // Colonne dynamique pour afficher N équipes et leurs scores
+        
         grid.addColumn(new ComponentRenderer<>(match -> {
             VerticalLayout layoutMatch = new VerticalLayout();
             layoutMatch.setPadding(false);
@@ -210,11 +210,11 @@ public class VueListeMatchs extends VerticalLayout {
             try {
                 for (EquipeSaisie s : saisies) {
                     int score = s.field.getValue() != null ? s.field.getValue() : 0;
-                    // Mise à jour équipe
+                    
                     try (PreparedStatement pst = con.prepareStatement("UPDATE equipe SET score = ? WHERE id = ?")) {
                         pst.setInt(1, score); pst.setInt(2, s.idEquipe); pst.executeUpdate();
                     }
-                    // Mise à jour points joueurs
+                    
                     try (PreparedStatement pst = con.prepareStatement("UPDATE joueur SET scoreTotal = scoreTotal + ? WHERE id IN (SELECT idJoueur FROM composition WHERE idEquipe = ?)")) {
                         pst.setInt(1, score); pst.setInt(2, s.idEquipe); pst.executeUpdate();
                     }
@@ -228,7 +228,7 @@ public class VueListeMatchs extends VerticalLayout {
         } catch (SQLException ex) { Notification.show("Erreur : " + ex.getMessage()); }
     }
 
-    // Classes utilitaires internes
+    
     public static class MatchSimpleInfo {
         public int idMatch, idTerrain, numRonde;
         public String statut, nomTournoi;
