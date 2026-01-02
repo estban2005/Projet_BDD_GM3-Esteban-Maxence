@@ -2,6 +2,7 @@ package fr.insa.toto.webui;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -12,7 +13,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.value.ValueChangeMode; // Import nécessaire pour la recherche
+import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import fr.insa.beuvron.utils.database.ConnectionPool;
@@ -31,7 +32,6 @@ public class VueJoueurs extends VerticalLayout {
 
     private Grid<Joueur> grid;
     
-    // Nouveaux champs pour la recherche
     private TextField filtreSurnom = new TextField("Rechercher par surnom");
 
     // Champs pour le formulaire d'édition
@@ -39,14 +39,13 @@ public class VueJoueurs extends VerticalLayout {
     private TextField prenom = new TextField("Prénom");
     private TextField surnom = new TextField("Surnom");
     private TextField sexe = new TextField("Sexe (M/F)");
+    private DatePicker dateNaissance = new DatePicker("Date de naissance");
 
     public VueJoueurs() {
         add(new H2("Liste des Joueurs"));
 
-        // Configuration du champ de recherche
         filtreSurnom.setPlaceholder("Tapez un surnom...");
         filtreSurnom.setClearButtonVisible(true);
-        // Mise à jour de la grille en temps réel pendant la saisie
         filtreSurnom.setValueChangeMode(ValueChangeMode.EAGER);
         filtreSurnom.addValueChangeListener(e -> rafraichirGrille());
         
@@ -58,6 +57,8 @@ public class VueJoueurs extends VerticalLayout {
         grid.addColumn(Joueur::getNom).setHeader("Nom");
         grid.addColumn(Joueur::getPrenom).setHeader("Prénom");
         grid.addColumn(Joueur::getSexe).setHeader("Sexe");
+        // Option 4 : Ajout de la colonne Date de Naissance dans la grille
+        grid.addColumn(Joueur::getDateNaissance).setHeader("Date Naissance").setSortable(true);
         grid.addColumn(Joueur::getScoreTotal).setHeader("Score Total");
 
         if (SessionInfo.isCurUserAdmin()) {
@@ -86,7 +87,6 @@ public class VueJoueurs extends VerticalLayout {
         try (Connection con = ConnectionPool.getConnection()) {
             List<Joueur> joueurs = Joueur.findAll(con);
             
-            // Logique de filtrage
             String search = filtreSurnom.getValue();
             if (search != null && !search.isEmpty()) {
                 joueurs = joueurs.stream()
@@ -109,8 +109,15 @@ public class VueJoueurs extends VerticalLayout {
         prenom.setValue(joueur.getPrenom() != null ? joueur.getPrenom() : "");
         surnom.setValue(joueur.getSurnom() != null ? joueur.getSurnom() : "");
         sexe.setValue(joueur.getSexe() != null ? joueur.getSexe() : "");
+        
+        // Conversion java.sql.Date -> java.time.LocalDate pour le DatePicker
+        if (joueur.getDateNaissance() != null) {
+            dateNaissance.setValue(joueur.getDateNaissance().toLocalDate());
+        } else {
+            dateNaissance.clear();
+        }
 
-        FormLayout formLayout = new FormLayout(surnom, nom, prenom, sexe);
+        FormLayout formLayout = new FormLayout(surnom, nom, prenom, sexe, dateNaissance);
         
         Button saveButton = new Button("Enregistrer", e -> {
             if (surnom.getValue().isEmpty()) {
@@ -122,6 +129,13 @@ public class VueJoueurs extends VerticalLayout {
             joueur.setPrenom(prenom.getValue());
             joueur.setSurnom(surnom.getValue());
             joueur.setSexe(sexe.getValue());
+            
+            // Conversion java.time.LocalDate -> java.sql.Date pour l'objet Joueur (BDD)
+            if (dateNaissance.getValue() != null) {
+                joueur.setDateNaissance(java.sql.Date.valueOf(dateNaissance.getValue()));
+            } else {
+                joueur.setDateNaissance(null);
+            }
 
             sauvegarderJoueur(joueur);
             dialog.close();
@@ -151,12 +165,10 @@ public class VueJoueurs extends VerticalLayout {
 
     private void supprimerJoueur(Joueur joueur) {
         try (Connection con = ConnectionPool.getConnection()) {
-            // Suppression des dépendances dans la table composition
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM composition WHERE idJoueur = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
             }
-            // Suppression du joueur
             try (PreparedStatement pst = con.prepareStatement("DELETE FROM joueur WHERE id = ?")) {
                 pst.setInt(1, joueur.getId());
                 pst.executeUpdate();
@@ -169,13 +181,15 @@ public class VueJoueurs extends VerticalLayout {
     }
     
     private void updateJoueurInDB(Connection con, Joueur j) throws SQLException {
-        String sql = "UPDATE joueur SET nom=?, prenom=?, surnom=?, sexe=? WHERE id=?";
+        // Ajout de dateNaissance dans la requête SQL d'UPDATE
+        String sql = "UPDATE joueur SET nom=?, prenom=?, surnom=?, sexe=?, dateNaissance=? WHERE id=?";
         try (PreparedStatement pst = con.prepareStatement(sql)) {
             pst.setString(1, j.getNom());
             pst.setString(2, j.getPrenom());
             pst.setString(3, j.getSurnom());
             pst.setString(4, j.getSexe());
-            pst.setInt(5, j.getId());
+            pst.setDate(5, j.getDateNaissance());
+            pst.setInt(6, j.getId());
             pst.executeUpdate();
         }
     }
